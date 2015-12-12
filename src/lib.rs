@@ -4,6 +4,8 @@ use std::path::Path;
 
 mod read_binary;
 
+use read_binary::BinaryRead;
+
 const HEADER_LEN: usize = 3;
 const HEADER_BYTES: &'static [u8; HEADER_LEN] = b"GBS";
 // const ROM_LEN: usize = 0x8000;
@@ -29,23 +31,25 @@ pub fn load<P: AsRef<Path>>(path: P) -> io::Result<Gbs> {
   let mut file = try!(File::open(path));
 
   let mut header = [0; HEADER_LEN];
-  try!(read_binary::read_all(&mut file, &mut header));
+  try!(file.read_all(&mut header));
   assert_eq!(header, *HEADER_BYTES);
 
-  let version = try!(read_binary::read_u8(&mut file));
-  let n_songs = try!(read_binary::read_u8(&mut file));
-  let first_song = try!(read_binary::read_u8(&mut file));
-  let load_addr = try!(read_binary::read_u16_le(&mut file));
-  let init_addr = try!(read_binary::read_u16_le(&mut file));
-  let play_addr = try!(read_binary::read_u16_le(&mut file));
-  let sp = try!(read_binary::read_u16_le(&mut file));
-  let timer_mod = try!(read_binary::read_u8(&mut file));
-  let timer_ctrl = try!(read_binary::read_u8(&mut file));
-  let title = try!(read_binary::read_str(&mut file, 32));
+  let version = try!(file.read_u8());
+  let n_songs = try!(file.read_u8());
+  let first_song = try!(file.read_u8());
+  let load_addr = try!(file.read_u16_le());
+  let init_addr = try!(file.read_u16_le());
+  let play_addr = try!(file.read_u16_le());
+  let sp = try!(file.read_u16_le());
+  let timer_mod = try!(file.read_u8());
+  let timer_ctrl = try!(file.read_u8());
+  let title = try!(file.read_str(32));
+  // FIXME: each seek causes 2 unnecessary syscalls
+  // read_str should consume all 32 bytes
   try!(file.seek(SeekFrom::Start(0x30)));
-  let author = try!(read_binary::read_str(&mut file, 32));
+  let author = try!(file.read_str(32));
   try!(file.seek(SeekFrom::Start(0x50)));
-  let copyright = try!(read_binary::read_str(&mut file, 32));
+  let copyright = try!(file.read_str(32));
   // let mut rom = [0; ROM_LEN];
   // try!(read_all(&mut file, &mut rom));
 
