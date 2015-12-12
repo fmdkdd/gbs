@@ -1,4 +1,4 @@
-use std::io::{self, Seek, SeekFrom};
+use std::io::{self, BufReader};
 use std::fs::File;
 use std::path::Path;
 
@@ -28,7 +28,8 @@ pub struct Gbs {
 }
 
 pub fn load<P: AsRef<Path>>(path: P) -> io::Result<Gbs> {
-  let mut file = try!(File::open(path));
+  let f = try!(File::open(path));
+  let mut file = BufReader::new(f);
 
   let mut header = [0; HEADER_LEN];
   try!(file.read_all(&mut header));
@@ -44,11 +45,7 @@ pub fn load<P: AsRef<Path>>(path: P) -> io::Result<Gbs> {
   let timer_mod = try!(file.read_u8());
   let timer_ctrl = try!(file.read_u8());
   let title = try!(file.read_str(32));
-  // FIXME: each seek causes 2 unnecessary syscalls
-  // read_str should consume all 32 bytes
-  try!(file.seek(SeekFrom::Start(0x30)));
   let author = try!(file.read_str(32));
-  try!(file.seek(SeekFrom::Start(0x50)));
   let copyright = try!(file.read_str(32));
   // let mut rom = [0; ROM_LEN];
   // try!(read_all(&mut file, &mut rom));

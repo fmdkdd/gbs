@@ -1,5 +1,4 @@
-use std::io::{self, Error, ErrorKind, Read};
-use std::fs::File;
+use std::io::{self, BufReader, Error, ErrorKind, Read};
 use std::char;
 
 // Provide the following methods on types implementing Read.
@@ -29,14 +28,15 @@ pub trait BinaryRead : Read {
     let mut ret = String::new();
     for _ in 0..len {
       let b = try!(self.read_u8());
-      match char::from_u32(b as u32) {
-        Some(c) if b != 0 => ret.push(c),
-        _ => break
-      };
+      if b != 0 {
+        if let Some(c) = char::from_u32(b as u32) {
+          ret.push(c)
+        }
+      }
     }
     Ok(ret)
   }
 }
 
-// We only need it on File for now.
-impl BinaryRead for File {}
+// We only need it on BufReader for now.
+impl<R: Read> BinaryRead for BufReader<R> {}
