@@ -1,4 +1,4 @@
-use std::io::{self, BufReader, Error, ErrorKind, Read};
+use std::io::{self, BufReader, Read};
 use std::fs::File;
 use std::path::Path;
 
@@ -6,6 +6,25 @@ mod read_binary;
 
 use read_binary::ReadBinary;
 
+macro_rules! fail {
+  ($err:path) => (return Err($err));
+}
+
+pub type Result<T> = std::result::Result<T, GbsError>;
+
+#[derive(Debug)]
+enum GbsError {
+  Io(io::Error),
+  WrongHeader,
+  UnknownVersion,
+  InvalidAddress,
+}
+
+impl From<io::Error> for GbsError {
+  fn from(err: io::Error) -> GbsError {
+    GbsError::Io(err)
+  }
+}
 
 #[derive(Debug)]
 pub struct Gbs {
@@ -24,22 +43,38 @@ pub struct Gbs {
   pub rom:        Vec<u8>,
 }
 
-pub fn load<P: AsRef<Path>>(path: P) -> io::Result<Gbs> {
+pub fn load<P: AsRef<Path>>(path: P) -> self::Result<Gbs> {
   let f = try!(File::open(path));
   let mut file = BufReader::new(f);
 
   let header = try!(file.read_str(3));
   if header != "GBS" {
-    return Err(Error::new(ErrorKind::Other,
-                          "Wrong header, not a GBS file"))
+    fail!(GbsError::WrongHeader)
   }
 
   let version = try!(file.read_u8());
+  if version != 1 {
+    fail!(GbsError::UnknownVersion)
+  }
+
   let n_songs = try!(file.read_u8());
   let first_song = try!(file.read_u8());
+
   let load_addr = try!(file.read_u16_le());
+  if load_addr < 0x400 || load_addr > 0x7fff {
+    fail!(GbsError::InvalidAddress)
+  }
+
   let init_addr = try!(file.read_u16_le());
+  if init_addr < 0x400 || init_addr > 0x7fff {
+    fail!(GbsError::InvalidAddress)
+  }
+
   let play_addr = try!(file.read_u16_le());
+  if play_addr < 0x400 || play_addr > 0x7fff {
+    fail!(GbsError::InvalidAddress)
+  }
+
   let sp = try!(file.read_u16_le());
   let timer_mod = try!(file.read_u8());
   let timer_ctrl = try!(file.read_u8());
