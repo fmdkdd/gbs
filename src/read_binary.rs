@@ -1,7 +1,7 @@
 use std::io::{self, BufReader, Error, ErrorKind, Read};
 
 // Provide the following methods on types implementing Read.
-pub trait BinaryRead : Read {
+pub trait ReadBinary : Read {
 
   // Backported from unstable read_exact in 1.5.0 source.
   fn read_just(&mut self, mut buf: &mut [u8]) -> io::Result<()> {
@@ -47,4 +47,4 @@ pub trait BinaryRead : Read {
 }
 
 // We only need it on BufReader for now.
-impl<R: Read> BinaryRead for BufReader<R> {}
+impl<R: Read> ReadBinary for BufReader<R> {}

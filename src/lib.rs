@@ -4,9 +4,8 @@ use std::path::Path;
 
 mod read_binary;
 
-use read_binary::BinaryRead;
+use read_binary::ReadBinary;
 
-// const ROM_LEN: usize = 0x8000;
 
 #[derive(Debug)]
 pub struct Gbs {
