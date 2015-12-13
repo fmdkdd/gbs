@@ -47,8 +47,7 @@ pub fn load<P: AsRef<Path>>(path: P) -> io::Result<Gbs> {
   let title = try!(file.read_str(32));
   let author = try!(file.read_str(32));
   let copyright = try!(file.read_str(32));
-  // let mut rom = [0; ROM_LEN];
-  // try!(read_all(&mut file, &mut rom));
+  let rom : Vec<u8> = try!(file.bytes().collect());
 
   Ok(Gbs {
     version:    version,
@@ -63,6 +62,6 @@ pub fn load<P: AsRef<Path>>(path: P) -> io::Result<Gbs> {
     title:      title,
     author:     author,
     copyright:  copyright,
-    // rom:        rom,
+    rom:        rom,
   })
 }
