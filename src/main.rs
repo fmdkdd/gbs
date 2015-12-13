@@ -32,6 +32,7 @@ fn main() {
 
   // Init
   cpu.reset();
+  cpu.sp = gbs.sp;
   cpu.a = gbs.first_song;
   cpu.pc = gbs.init_addr;
 
