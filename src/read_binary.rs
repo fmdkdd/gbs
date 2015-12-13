@@ -1,37 +1,45 @@
 use std::io::{self, BufReader, Error, ErrorKind, Read};
-use std::char;
 
 // Provide the following methods on types implementing Read.
 pub trait BinaryRead : Read {
 
+  // Backported from unstable read_exact in 1.5.0 source.
+  fn read_just(&mut self, mut buf: &mut [u8]) -> io::Result<()> {
+    while !buf.is_empty() {
+      match self.read(buf) {
+        Ok(0) => break,
+        Ok(n) => { let tmp = buf; buf = &mut tmp[n..]; }
+        Err(ref e) if e.kind() == ErrorKind::Interrupted => {}
+        Err(e) => return Err(e),
+      }
+    }
+    if !buf.is_empty() {
+      Err(Error::new(ErrorKind::Other,
+                     "failed to fill whole buffer"))
+    } else {
+      Ok(())
+    }
+  }
+
   fn read_u8(&mut self) -> io::Result<u8> {
     let mut buf = [0];
-    try!(self.read(&mut buf));
+    try!(self.read_just(&mut buf));
     Ok(buf[0])
   }
 
   fn read_u16_le(&mut self) -> io::Result<u16> {
     let mut buf = [0, 0];
-    try!(self.read(&mut buf));
+    try!(self.read_just(&mut buf));
     Ok(((buf[1] as u16) << 8) | (buf[0] as u16))
   }
 
-  fn read_all(&mut self, buf: &mut [u8]) -> io::Result<()> {
-    match self.read(buf) {
-      Ok(len) if len == buf.len() => Ok(()),
-      Ok(_) => Err(Error::new(ErrorKind::Other, "Could not read all bytes")),
-      Err(e) => Err(e)
-    }
-  }
 
-  fn read_str(&mut self, len: u32) -> io::Result<String> {
+  fn read_str(&mut self, len: usize) -> io::Result<String> {
     let mut ret = String::new();
-    for _ in 0..len {
-      let b = try!(self.read_u8());
-      if b != 0 {
-        if let Some(c) = char::from_u32(b as u32) {
-          ret.push(c)
-        }
+    for b in self.bytes().take(len) {
+      let c = try!(b);
+      if c != 0 {
+        ret.push(c as char)
       }
     }
     Ok(ret)

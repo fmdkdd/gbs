@@ -1,4 +1,4 @@
-use std::io::{self, BufReader};
+use std::io::{self, BufReader, Error, ErrorKind, Read};
 use std::fs::File;
 use std::path::Path;
 
@@ -6,8 +6,6 @@ mod read_binary;
 
 use read_binary::BinaryRead;
 
-const HEADER_LEN: usize = 3;
-const HEADER_BYTES: &'static [u8; HEADER_LEN] = b"GBS";
 // const ROM_LEN: usize = 0x8000;
 
 #[derive(Debug)]
@@ -24,16 +22,18 @@ pub struct Gbs {
   pub title:      String,
   pub author:     String,
   pub copyright:  String,
-  // rom:        [u8; ROM_LEN],
+  pub rom:        Vec<u8>,
 }
 
 pub fn load<P: AsRef<Path>>(path: P) -> io::Result<Gbs> {
   let f = try!(File::open(path));
   let mut file = BufReader::new(f);
 
-  let mut header = [0; HEADER_LEN];
-  try!(file.read_all(&mut header));
-  assert_eq!(header, *HEADER_BYTES);
+  let header = try!(file.read_str(3));
+  if header != "GBS" {
+    return Err(Error::new(ErrorKind::Other,
+                          "Wrong header, not a GBS file"))
+  }
 
   let version = try!(file.read_u8());
   let n_songs = try!(file.read_u8());
