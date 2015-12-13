@@ -3,14 +3,11 @@ extern crate gbs;
 use std::env;
 
 fn main() {
-  let filename = match env::args().nth(1) {
-    Some(s) => s,
-    _ => panic!("No GBS file specified")
-  };
-  let gbs = match gbs::load(filename) {
-    Ok(x) => x,
-    Err(e) => panic!(e.to_string())
-  };
+  let filename = env::args().nth(1)
+    .expect("No GBS file specified");
+
+  let gbs = gbs::load(filename)
+    .expect("Error loading GBS file");
 
   println!("{:?}", gbs);
   println!("load_addr: {:x}", gbs.load_addr);
