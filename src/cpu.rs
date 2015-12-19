@@ -1,5 +1,7 @@
 const RAM_LENGTH : usize = 0x10000;
 
+const C_FLAG : u8 = 0x10;
+
 pub struct Cpu {
   pub a: u8,
   b: u8,
@@ -162,6 +164,14 @@ impl Cpu {
         self.cycles += 8;
       });
 
+      // LD SP,nn
+      (sp, nn) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        self.sp = to_u16!(h, l);
+        self.cycles += 12;
+      });
+
       // LD r,n
       ($r1:ident, n) => ({
         let n = self.read_pc();
@@ -173,6 +183,19 @@ impl Cpu {
       ($r1:ident, $r2:ident) => ({
         self.$r1 = self.$r2;
         self.cycles += 4;
+      });
+
+      // LD SP,HL
+      (sp, h l) => ({
+        self.sp = to_u16!(self.h, self.l);
+        self.cycles += 8;
+      });
+
+      // LD rr,nn
+      ($rh:ident $rl:ident, nn) => ({
+        self.$rl = self.read_pc();
+        self.$rh = self.read_pc();
+        self.cycles += 12;
       });
     }
 
@@ -226,6 +249,65 @@ impl Cpu {
       })
     }
 
+    macro_rules! inc {
+      // INC (HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        v += 1;
+        self.write(addr, v);
+        self.f = (self.f & C_FLAG)
+          | ((v & 0x10) << 1)
+          | (((v == 0) as u8) << 7);
+        self.cycles += 12;
+      });
+
+      // INC sp
+      (sp) => ({
+        self.sp += 1;
+        self.cycles += 8;
+      });
+
+      // INC r
+      ($r:ident) => ({
+        self.$r += 1;
+        self.f = (self.f & C_FLAG)
+          | ((self.$r & 0x10) << 1)
+          | (((self.$r == 0) as u8) << 7);
+        self.cycles += 4;
+      });
+
+      // INC rr
+      ($rh:ident $rl:ident) => ({
+        let mut rr = to_u16!(self.$rh, self.$rl);
+        rr += 1;
+        let (h, l) = from_u16!(rr);
+        self.$rh = h;
+        self.$rl = l;
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! dec {
+      // DEC sp
+      (sp) => ({
+        self.sp -= 1;
+        self.cycles += 4;
+      });
+
+      // DEC rr
+      ($rh:ident $rl:ident) => ({
+        let mut rr = to_u16!(self.$rh, self.$rl);
+        rr -= 1;
+        let (h, l) = from_u16!(rr);
+        self.$rh = h;
+        self.$rl = l;
+        // TODO: flags
+        self.cycles += 4;
+      });
+    }
+
+
     self.cycles = 0;
 
     while self.cycles < cycles {
@@ -233,7 +315,7 @@ impl Cpu {
       match opcode {
 
         0x20 => unimplemented!(), // JR NZ
-        0x21 => ld!((h l), n),
+        0x21 => ld!(h l, nn),
         0x28 => unimplemented!(), // JR Z
 
         0xF0 => ld!(a, (0xFF00 + n)),
@@ -344,6 +426,11 @@ impl Cpu {
         0x7D => ld!(a, l),
 
         // LD 16
+        0xF9 => ld!(sp, h l),
+        0x31 => ld!(sp, nn),
+        0x01 => ld!(b c, nn),
+        0x11 => ld!(d e, nn),
+
 
         0xE0 => ld!((0xFF00 + n), a),
         0xE2 => ld!((0xFF00 + c), a),
@@ -361,6 +448,27 @@ impl Cpu {
 
         0x36 => ld!((h l), n),
         0x3E => ld!(a, n),
+
+        0x03 => inc!(b c),
+        0x13 => inc!(d e),
+        0x23 => inc!(h l),
+        0x33 => inc!(sp),
+
+        0x0B => dec!(b c),
+        0x1B => dec!(d e),
+        0x2B => dec!(h l),
+        0x3B => dec!(sp),
+
+        0x34 => inc!((h l)),
+
+        0x04 => inc!(b),
+        0x0C => inc!(c),
+        0x14 => inc!(d),
+        0x1C => inc!(e),
+        0x24 => inc!(h),
+        0x2C => inc!(l),
+        0x3C => inc!(a),
+
 
         _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
       }
