@@ -69,89 +69,161 @@ impl Cpu {
 
   pub fn run(&mut self, cycles: u64) {
     macro_rules! to_u16 {
-      ($a:expr, $b:expr) => (($a as u16) << 8 | ($b as u16));
-    }
-
-    macro_rules! ld_r1_r2 {
-      // Order of these is important.  Match on first argument,
-      // then discriminate on second.
-      ((c), $r2:ident, $cycles:expr) => ({
-        let addr = 0xFF00 | (self.c as u16);
-        let x = self.$r2;
-        self.write(addr, x);
-        self.cycles += $cycles;
-      });
-
-      ((n n), $r2:ident, $cycles:expr) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
-        let addr = to_u16!(h, l);
-        let x = self.$r2;
-        self.write(addr, x);
-        self.cycles += $cycles;
-      });
-
-      (($rh:ident $rl:ident), n, $cycles:expr) => ({
-        let n = self.read_pc();
-        let addr = to_u16!(self.$rh, self.$rl);
-        self.write(addr, n);
-        self.cycles += $cycles;
-      });
-
-      (($rh:ident $rl:ident), $r2:ident, $cycles:expr) => ({
-        let addr = to_u16!(self.$rh, self.$rl);
-        let x = self.$r2;
-        self.write(addr, x);
-        self.cycles += $cycles;
-      });
-
-      ($r1:ident, (c), $cycles:expr) => ({
-        let addr = 0xFF00 | (self.c as u16);
-        self.$r1 = self.read(addr);
-        self.cycles += $cycles;
-      });
-
-      ($r1:ident, (n n), $cycles:expr) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
-        let addr = to_u16!(h, l);
-        self.$r1 = self.read(addr);
-        self.cycles += $cycles;
-      });
-
-      ($r1:ident, ($rh:ident $rl:ident), $cycles:expr) => ({
-        let addr = to_u16!(self.$rh, self.$rl);
-        self.$r1 = self.read(addr);
-        self.cycles += $cycles;
-      });
-
-      ($r1:ident, n, $cycles:expr) => ({
-        let n = self.read_pc();
-        self.$r1 = n;
-        self.cycles += $cycles;
-      });
-
-      ($r1:ident, $r2:ident, $cycles:expr) => ({
-        self.$r1 = self.$r2;
-        self.cycles += $cycles;
-      });
-
-    }
-
-    macro_rules! ldd {
-      ($r1:ident, ($rh:ident $rl:ident), $cycles:expr) => ({
-        let mut addr = to_u16!(self.$rh, self.$rl);
-        self.$r1 = self.read(addr);
-        addr -= 1;
-        let (h, l) = from_u16!(addr);
-        self.$rh = h;
-        self.$rl = l;
-        self.cycles += $cycles;
-      });
+      ($h:expr, $l:expr) => (($h as u16) << 8 | ($l as u16));
     }
 
     macro_rules! from_u16 {
       ($hl:expr) => ( (($hl >> 8) as u8, $hl as u8) )
+    }
+
+    macro_rules! nop {
+      () => ({ self.cycles += 4; });
+    }
+
+    macro_rules! ld {
+      // Order of these is important.  Match on first argument,
+      // then discriminate on second.
+
+      // LD (FF00+n),A
+      ((0xFF00 + n), a) => ({
+        let n = self.read_pc();
+        let addr = 0xFF00 | (n as u16);
+        let v = self.a;
+        self.write(addr, v);
+        self.cycles += 12;
+      });
+
+      // LD (FF00+C),A
+      ((0xFF00 + c), a) => ({
+        let addr = 0xFF00 | (self.c as u16);
+        let v = self.a;
+        self.write(addr, v);
+        self.cycles += 12;
+      });
+
+      // LD (nn),A
+      ((n n), a) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        let addr = to_u16!(h, l);
+        let v = self.a;
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      // LD (HL),n
+      ((h l), n) => ({
+        let n = self.read_pc();
+        let addr = to_u16!(self.h, self.l);
+        self.write(addr, n);
+        self.cycles += 12;
+      });
+
+      // LD (HL),r
+      // LD (BC),A
+      // LD (DE),A
+      (($rh:ident $rl:ident), $r2:ident) => ({
+        let addr = to_u16!(self.$rh, self.$rl);
+        let v = self.$r2;
+        self.write(addr, v);
+        self.cycles += 8;
+      });
+
+      // LD A,(FF00+n)
+      (a, (0xFF00 + n)) => ({
+        let n = self.read_pc();
+        let addr = 0xFF00 | (n as u16);
+        self.a = self.read(addr);
+        self.cycles += 12;
+      });
+
+      // LD A,(FF00+C)
+      (a, (0xFF00 + c)) => ({
+        let addr = 0xFF00 | (self.c as u16);
+        self.a = self.read(addr);
+        self.cycles += 8;
+      });
+
+      // LD A,(nn)
+      ($r1:ident, (n n)) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        let addr = to_u16!(h, l);
+        self.$r1 = self.read(addr);
+        self.cycles += 16;
+      });
+
+      // LD r,(HL)
+      // LD A,(BC)
+      // LD A,(DE)
+      ($r1:ident, ($rh:ident $rl:ident)) => ({
+        let addr = to_u16!(self.$rh, self.$rl);
+        self.$r1 = self.read(addr);
+        self.cycles += 8;
+      });
+
+      // LD r,n
+      ($r1:ident, n) => ({
+        let n = self.read_pc();
+        self.$r1 = n;
+        self.cycles += 8;
+      });
+
+      // LD r,r
+      ($r1:ident, $r2:ident) => ({
+        self.$r1 = self.$r2;
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! ldd {
+      // LDD (HL),A
+      ((h l), a) => ({
+        let mut addr = to_u16!(self.h, self.l);
+        let v = self.a;
+        self.write(addr, v);
+        addr -= 1;
+        let (h, l) = from_u16!(addr);
+        self.h = h;
+        self.l = l;
+        self.cycles += 8;
+      });
+
+      // LDD A,(HL)
+      (a, (h l)) => ({
+        let mut addr = to_u16!(self.h, self.l);
+        self.a = self.read(addr);
+        addr -= 1;
+        let (h, l) = from_u16!(addr);
+        self.h = h;
+        self.l = l;
+        self.cycles += 8;
+      })
+    }
+
+    macro_rules! ldi {
+      // LDD (HL),A
+      ((h l), a) => ({
+        let mut addr = to_u16!(self.h, self.l);
+        let v = self.a;
+        self.write(addr, v);
+        addr += 1;
+        let (h, l) = from_u16!(addr);
+        self.h = h;
+        self.l = l;
+        self.cycles += 8;
+      });
+
+      // LDD A,(HL)
+      (a, (h l)) => ({
+        let mut addr = to_u16!(self.h, self.l);
+        self.a = self.read(addr);
+        addr += 1;
+        let (h, l) = from_u16!(addr);
+        self.h = h;
+        self.l = l;
+        self.cycles += 8;
+      })
     }
 
     self.cycles = 0;
@@ -160,108 +232,137 @@ impl Cpu {
       let opcode = self.read_pc();
       match opcode {
 
-        // LD nn, n
-        0x06 => ld_r1_r2!(b, n, 8),
-        0x0E => ld_r1_r2!(c, n, 8),
-        0x16 => ld_r1_r2!(d, n, 8),
-        0x1E => ld_r1_r2!(e, n, 8),
-        0x26 => ld_r1_r2!(h, n, 8),
-        0x2E => ld_r1_r2!(l, n, 8),
+        0x20 => unimplemented!(), // JR NZ
+        0x21 => ld!((h l), n),
+        0x28 => unimplemented!(), // JR Z
 
-        // LD r1, r2
-        // 0x7F => ld_r1_r2!(a, a, 4), // TODO: implement as NOP
-        0x78 => ld_r1_r2!(a, b, 4),
-        0x79 => ld_r1_r2!(a, c, 4),
-        0x7A => ld_r1_r2!(a, d, 4),
-        0x7B => ld_r1_r2!(a, e, 4),
-        0x7C => ld_r1_r2!(a, h, 4),
-        0x7D => ld_r1_r2!(a, l, 4),
-        0x7E => ld_r1_r2!(a, (h l), 8),
+        0xF0 => ld!(a, (0xFF00 + n)),
+        0xF2 => ld!(a, (0xFF00 + c)),
+        0x0A => ld!(a, (b c)),
+        0x3A => ldd!(a, (h l)),
+        0x1A => ld!(a, (d e)),
+        0x2A => ldi!(a, (h l)),
+        0xFA => ld!(a, (n n)),
 
-        // 0x40 => ld_r1_r2!(b, b, 4),
-        0x41 => ld_r1_r2!(b, c, 4),
-        0x42 => ld_r1_r2!(b, d, 4),
-        0x43 => ld_r1_r2!(b, e, 4),
-        0x44 => ld_r1_r2!(b, h, 4),
-        0x45 => ld_r1_r2!(b, l, 4),
-        0x46 => ld_r1_r2!(b, (h l), 8),
+        // CMP
 
-        0x48 => ld_r1_r2!(c, b, 4),
-        // 0x49 => ld_r1_r2!(c, c, 4),
-        0x4A => ld_r1_r2!(c, d, 4),
-        0x4B => ld_r1_r2!(c, e, 4),
-        0x4C => ld_r1_r2!(c, h, 4),
-        0x4D => ld_r1_r2!(c, l, 4),
-        0x4E => ld_r1_r2!(c, (h l), 8),
+        // LD r,(HL)
+        0x46 => ld!(b, (h l)),
+        0x4E => ld!(c, (h l)),
+        0x56 => ld!(d, (h l)),
+        0x5E => ld!(e, (h l)),
+        0x66 => ld!(h, (h l)),
+        0x6E => ld!(l, (h l)),
+        0x7E => ld!(a, (h l)),
 
-        0x50 => ld_r1_r2!(d, b, 4),
-        0x51 => ld_r1_r2!(d, c, 4),
-        // 0x52 => ld_r1_r2!(d, d, 4),
-        0x53 => ld_r1_r2!(d, e, 4),
-        0x54 => ld_r1_r2!(d, h, 4),
-        0x55 => ld_r1_r2!(d, l, 4),
-        0x56 => ld_r1_r2!(d, (h l), 8),
+        // CNZ
 
-        0x58 => ld_r1_r2!(e, b, 4),
-        0x59 => ld_r1_r2!(e, c, 4),
-        0x5A => ld_r1_r2!(e, d, 4),
-        // 0x5B => ld_r1_r2!(e, e, 4),
-        0x5C => ld_r1_r2!(e, h, 4),
-        0x5D => ld_r1_r2!(e, l, 4),
-        0x5E => ld_r1_r2!(e, (h l), 8),
+        // CALL
 
-        0x60 => ld_r1_r2!(h, b, 4),
-        0x61 => ld_r1_r2!(h, c, 4),
-        0x62 => ld_r1_r2!(h, d, 4),
-        0x63 => ld_r1_r2!(h, e, 4),
-        // 0x64 => ld_r1_r2!(h, h, 4),
-        0x65 => ld_r1_r2!(h, l, 4),
-        0x66 => ld_r1_r2!(h, (h l), 8),
+        // RNZ
 
-        0x68 => ld_r1_r2!(l, b, 4),
-        0x69 => ld_r1_r2!(l, c, 4),
-        0x6A => ld_r1_r2!(l, d, 4),
-        0x6B => ld_r1_r2!(l, e, 4),
-        0x6C => ld_r1_r2!(l, h, 4),
-        // 0x6D => ld_r1_r2!(l, l, 4),
-        0x6E => ld_r1_r2!(l, (h l), 8),
+        // RET
 
-        0x70 => ld_r1_r2!((h l), b, 8),
-        0x71 => ld_r1_r2!((h l), c, 8),
-        0x72 => ld_r1_r2!((h l), d, 8),
-        0x73 => ld_r1_r2!((h l), e, 8),
-        0x74 => ld_r1_r2!((h l), h, 8),
-        0x75 => ld_r1_r2!((h l), l, 8),
-        0x36 => ld_r1_r2!((h l), n, 12),
+        // NOP
+        // LD B,B
+        // LD C,C
+        // LD D,D
+        // LD E,E
+        // LD H,H
+        // LD L,L
+        // LD A,A
+        0x00 => nop!(),
+        0x40 => nop!(),
+        0x49 => nop!(),
+        0x52 => nop!(),
+        0x5B => nop!(),
+        0x64 => nop!(),
+        0x6D => nop!(),
+        0x7F => nop!(),
 
-        // LD A,n
-        0x0A => ld_r1_r2!(a, (b c), 8),
-        0x1A => ld_r1_r2!(a, (d e), 8),
-        0xFA => ld_r1_r2!(a, (n n), 16),
-        0x3E => ld_r1_r2!(a, n, 8),
+        // CB
 
-        // LD n,A
-        0x47 => ld_r1_r2!(b, a, 4),
-        0x4F => ld_r1_r2!(c, a, 4),
-        0x57 => ld_r1_r2!(d, a, 4),
-        0x5F => ld_r1_r2!(e, a, 4),
-        0x67 => ld_r1_r2!(h, a, 4),
-        0x6F => ld_r1_r2!(l, a, 4),
-        0x02 => ld_r1_r2!((b c), a, 8),
-        0x12 => ld_r1_r2!((d e), a, 8),
-        0x77 => ld_r1_r2!((h l), a, 8),
-        0xEA => ld_r1_r2!((n n), a, 16),
+        // SHIFT
 
-        // LD A,(C)
-        0xF2 => ld_r1_r2!(a, (c), 8),
+        // LD (HL),r
+        0x70 => ld!((h l), b),
+        0x71 => ld!((h l), c),
+        0x72 => ld!((h l), d),
+        0x73 => ld!((h l), e),
+        0x74 => ld!((h l), h),
+        0x75 => ld!((h l), l),
+        0x77 => ld!((h l), a),
 
-        // LD (C),A
-        0xE2 => ld_r1_r2!((c), a, 8),
+        // LD r,r
+        0x41 => ld!(b, c),
+        0x42 => ld!(b, d),
+        0x43 => ld!(b, e),
+        0x44 => ld!(b, h),
+        0x45 => ld!(b, l),
+        0x47 => ld!(b, a),
 
-        // LDD A,(HL)
-        0x3A => ldd!(a, (h l), 8),
+        0x48 => ld!(c, b),
+        0x4A => ld!(c, d),
+        0x4B => ld!(c, e),
+        0x4C => ld!(c, h),
+        0x4D => ld!(c, l),
+        0x4F => ld!(c, a),
 
-        _ => panic!(format!("Unknown opcode {:x}", opcode))
+        0x50 => ld!(d, b),
+        0x51 => ld!(d, c),
+        0x53 => ld!(d, e),
+        0x54 => ld!(d, h),
+        0x55 => ld!(d, l),
+        0x57 => ld!(d, a),
+
+        0x58 => ld!(e, b),
+        0x59 => ld!(e, c),
+        0x5A => ld!(e, d),
+        0x5C => ld!(e, h),
+        0x5D => ld!(e, l),
+        0x5F => ld!(e, a),
+
+        0x60 => ld!(h, b),
+        0x61 => ld!(h, c),
+        0x62 => ld!(h, d),
+        0x63 => ld!(h, e),
+        0x65 => ld!(h, l),
+        0x67 => ld!(h, a),
+
+        0x68 => ld!(l, b),
+        0x69 => ld!(l, c),
+        0x6A => ld!(l, d),
+        0x6B => ld!(l, e),
+        0x6C => ld!(l, h),
+        0x6F => ld!(l, a),
+
+        0x78 => ld!(a, b),
+        0x79 => ld!(a, c),
+        0x7A => ld!(a, d),
+        0x7B => ld!(a, e),
+        0x7C => ld!(a, h),
+        0x7D => ld!(a, l),
+
+        // LD 16
+
+        0xE0 => ld!((0xFF00 + n), a),
+        0xE2 => ld!((0xFF00 + c), a),
+        0x32 => ldd!((h l), a),
+        0x02 => ld!((b c), a),
+        0x12 => ld!((d e), a),
+        0x22 => ldi!((h l), a),
+        0xEA => ld!((n n), a),
+        0x06 => ld!(b, (n n)),
+        0x0E => ld!(c, (n n)),
+        0x16 => ld!(d, (n n)),
+        0x1E => ld!(e, (n n)),
+        0x26 => ld!(h, (n n)),
+        0x2E => ld!(l, (n n)),
+
+        0x36 => ld!((h l), n),
+        0x3E => ld!(a, n),
+
+        _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
       }
     }
   }
