@@ -1,5 +1,8 @@
 const RAM_LENGTH : usize = 0x10000;
 
+const Z_FLAG : u8 = 0x80;
+const N_FLAG : u8 = 0x40;
+const H_FLAG : u8 = 0x20;
 const C_FLAG : u8 = 0x10;
 
 pub struct Cpu {
@@ -205,7 +208,7 @@ impl Cpu {
         let mut addr = to_u16!(self.h, self.l);
         let v = self.a;
         self.write(addr, v);
-        addr -= 1;
+        addr -= 1;              // TODO: should this wrap?
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -216,7 +219,7 @@ impl Cpu {
       (a, (h l)) => ({
         let mut addr = to_u16!(self.h, self.l);
         self.a = self.read(addr);
-        addr -= 1;
+        addr -= 1;              // TODO: should this wrap?
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -230,7 +233,7 @@ impl Cpu {
         let mut addr = to_u16!(self.h, self.l);
         let v = self.a;
         self.write(addr, v);
-        addr += 1;
+        addr += 1;              // TODO: should this wrap?
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -241,7 +244,7 @@ impl Cpu {
       (a, (h l)) => ({
         let mut addr = to_u16!(self.h, self.l);
         self.a = self.read(addr);
-        addr += 1;
+        addr += 1;              // TODO: should this wrap?
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -253,34 +256,31 @@ impl Cpu {
       // INC (HL)
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
-        let mut v = self.read(addr);
-        v += 1;
-        self.write(addr, v);
-        self.f = (self.f & C_FLAG)
-          | ((v & 0x10) << 1)
-          | (((v == 0) as u8) << 7);
+        let v = self.read(addr);
+        let r = v.wrapping_add(1);
+        self.write(addr, r);
+        flags!(z0h-, v, r);
         self.cycles += 12;
       });
 
       // INC sp
       (sp) => ({
-        self.sp += 1;
+        self.sp += 1;           // TODO: should this wrap?
         self.cycles += 8;
       });
 
       // INC r
       ($r:ident) => ({
-        self.$r += 1;
-        self.f = (self.f & C_FLAG)
-          | ((self.$r & 0x10) << 1)
-          | (((self.$r == 0) as u8) << 7);
+        let v = self.$r;
+        self.$r = v.wrapping_add(1);
+        flags!(z0h-, v, self.$r);
         self.cycles += 4;
       });
 
       // INC rr
       ($rh:ident $rl:ident) => ({
         let mut rr = to_u16!(self.$rh, self.$rl);
-        rr += 1;
+        rr += 1;                // TODO: should this wrap?
         let (h, l) = from_u16!(rr);
         self.$rh = h;
         self.$rl = l;
@@ -289,21 +289,71 @@ impl Cpu {
     }
 
     macro_rules! dec {
+      // DEC (HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let r = v.wrapping_sub(1);
+        self.write(addr, r);
+        flags!(z1h-, v, r);
+        self.cycles += 12;
+      });
+
       // DEC sp
       (sp) => ({
-        self.sp -= 1;
+        self.sp -= 1;           // TODO: should this wrap?
+        self.cycles += 4;
+      });
+
+      // DEC r
+      ($r:ident) => ({
+        let v = self.$r;
+        self.$r = v.wrapping_sub(1);
+        flags!(z1h-, v, self.$r);
         self.cycles += 4;
       });
 
       // DEC rr
       ($rh:ident $rl:ident) => ({
         let mut rr = to_u16!(self.$rh, self.$rl);
-        rr -= 1;
+        rr -= 1;                // TODO: should this wrap?
         let (h, l) = from_u16!(rr);
         self.$rh = h;
         self.$rl = l;
-        // TODO: flags
         self.cycles += 4;
+      });
+    }
+
+    macro_rules! add {
+      ($r:ident) => ({
+        let r = self.a.wrapping_add(self.$r);
+        // TODO: flags
+        self.a = r;
+      });
+    }
+
+    macro_rules! flags {
+      // First argument stands for znhc flags.
+      //   z: set if $r is 0
+      //   n: 0 or 1
+      //   h: set if nibble overflow
+      //   c: ?
+      // $v: value before operation
+      // $r: value after operation
+
+      (z0h-, $v:expr, $r:expr) => ({
+        self.f =
+          ((($r == 0) as u8) << 7)
+          | (((($v & 0xF) == 0xF) as u8) << 5)
+          | (self.f & C_FLAG);
+      });
+
+      (z1h-, $v:expr, $r:expr) => ({
+        self.f =
+          ((($r == 0) as u8) << 7)
+          | ((($v == 0) as u8) << 5)
+          | N_FLAG
+          | (self.f & C_FLAG);
       });
     }
 
@@ -469,6 +519,25 @@ impl Cpu {
         0x2C => inc!(l),
         0x3C => inc!(a),
 
+        0x35 => dec!((h l)),
+
+        0x05 => dec!(b),
+        0x0D => dec!(c),
+        0x15 => dec!(d),
+        0x1D => dec!(e),
+        0x25 => dec!(h),
+        0x2D => dec!(l),
+        0x3D => dec!(a),
+
+        // TODO: add 16bit
+
+        0x80 => add!(b),
+        0x81 => add!(c),
+        0x82 => add!(d),
+        0x83 => add!(e),
+        0x84 => add!(h),
+        0x85 => add!(l),
+        0x87 => add!(a),
 
         _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
       }
