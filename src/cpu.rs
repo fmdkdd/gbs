@@ -150,11 +150,11 @@ impl Cpu {
       });
 
       // LD A,(nn)
-      ($r1:ident, (n n)) => ({
+      (a, (n n)) => ({
         let l = self.read_pc();
         let h = self.read_pc();
         let addr = to_u16!(h, l);
-        self.$r1 = self.read(addr);
+        self.a = self.read(addr);
         self.cycles += 16;
       });
 
@@ -363,67 +363,10 @@ impl Cpu {
     while self.cycles < cycles {
       let opcode = self.read_pc();
       match opcode {
+        // Following the order of pandoc, to know what I still have left to
+        // implement.
 
-        0x20 => unimplemented!(), // JR NZ
-        0x21 => ld!(h l, nn),
-        0x28 => unimplemented!(), // JR Z
-
-        0xF0 => ld!(a, (0xFF00 + n)),
-        0xF2 => ld!(a, (0xFF00 + c)),
-        0x0A => ld!(a, (b c)),
-        0x3A => ldd!(a, (h l)),
-        0x1A => ld!(a, (d e)),
-        0x2A => ldi!(a, (h l)),
-        0xFA => ld!(a, (n n)),
-
-        // CMP
-
-        // LD r,(HL)
-        0x46 => ld!(b, (h l)),
-        0x4E => ld!(c, (h l)),
-        0x56 => ld!(d, (h l)),
-        0x5E => ld!(e, (h l)),
-        0x66 => ld!(h, (h l)),
-        0x6E => ld!(l, (h l)),
-        0x7E => ld!(a, (h l)),
-
-        // CNZ
-
-        // CALL
-
-        // RNZ
-
-        // RET
-
-        // NOP
-        // LD B,B
-        // LD C,C
-        // LD D,D
-        // LD E,E
-        // LD H,H
-        // LD L,L
-        // LD A,A
-        0x00 => nop!(),
-        0x40 => nop!(),
-        0x49 => nop!(),
-        0x52 => nop!(),
-        0x5B => nop!(),
-        0x64 => nop!(),
-        0x6D => nop!(),
-        0x7F => nop!(),
-
-        // CB
-
-        // SHIFT
-
-        // LD (HL),r
-        0x70 => ld!((h l), b),
-        0x71 => ld!((h l), c),
-        0x72 => ld!((h l), d),
-        0x73 => ld!((h l), e),
-        0x74 => ld!((h l), h),
-        0x75 => ld!((h l), l),
-        0x77 => ld!((h l), a),
+        // GMB 8bit loads
 
         // LD r,r
         0x41 => ld!(b, c),
@@ -475,42 +418,96 @@ impl Cpu {
         0x7C => ld!(a, h),
         0x7D => ld!(a, l),
 
-        // LD 16
-        0xF9 => ld!(sp, h l),
-        0x31 => ld!(sp, nn),
-        0x01 => ld!(b c, nn),
-        0x11 => ld!(d e, nn),
+        // LD B,B
+        // LD C,C
+        // LD D,D
+        // LD E,E
+        // LD H,H
+        // LD L,L
+        // LD A,A
+        0x40 => nop!(),
+        0x49 => nop!(),
+        0x52 => nop!(),
+        0x5B => nop!(),
+        0x64 => nop!(),
+        0x6D => nop!(),
+        0x7F => nop!(),
 
-
-        0xE0 => ld!((0xFF00 + n), a),
-        0xE2 => ld!((0xFF00 + c), a),
-        0x32 => ldd!((h l), a),
-        0x02 => ld!((b c), a),
-        0x12 => ld!((d e), a),
-        0x22 => ldi!((h l), a),
-        0xEA => ld!((n n), a),
-        0x06 => ld!(b, (n n)),
-        0x0E => ld!(c, (n n)),
-        0x16 => ld!(d, (n n)),
-        0x1E => ld!(e, (n n)),
-        0x26 => ld!(h, (n n)),
-        0x2E => ld!(l, (n n)),
-
-        0x36 => ld!((h l), n),
+        // LD r,n
+        0x06 => ld!(b, n),
+        0x0E => ld!(c, n),
+        0x16 => ld!(d, n),
+        0x1E => ld!(e, n),
+        0x26 => ld!(h, n),
+        0x2E => ld!(l, n),
         0x3E => ld!(a, n),
 
-        0x03 => inc!(b c),
-        0x13 => inc!(d e),
-        0x23 => inc!(h l),
-        0x33 => inc!(sp),
+        // LD r,(HL)
+        0x46 => ld!(b, (h l)),
+        0x4E => ld!(c, (h l)),
+        0x56 => ld!(d, (h l)),
+        0x5E => ld!(e, (h l)),
+        0x66 => ld!(h, (h l)),
+        0x6E => ld!(l, (h l)),
+        0x7E => ld!(a, (h l)),
 
-        0x0B => dec!(b c),
-        0x1B => dec!(d e),
-        0x2B => dec!(h l),
-        0x3B => dec!(sp),
+        // LD (HL),r
+        0x70 => ld!((h l), b),
+        0x71 => ld!((h l), c),
+        0x72 => ld!((h l), d),
+        0x73 => ld!((h l), e),
+        0x74 => ld!((h l), h),
+        0x75 => ld!((h l), l),
+        0x77 => ld!((h l), a),
 
-        0x34 => inc!((h l)),
+        0x36 => ld!((h l), n),
 
+        0x0A => ld!(a, (b c)),
+        0x1A => ld!(a, (d e)),
+        0xFA => ld!(a, (n n)),
+
+        0x02 => ld!((b c), a),
+        0x12 => ld!((d e), a),
+        0xEA => ld!((n n), a),
+
+        0xF0 => ld!(a, (0xFF00 + n)),
+        0xE0 => ld!((0xFF00 + n), a),
+
+        0xF2 => ld!(a, (0xFF00 + c)),
+        0xE2 => ld!((0xFF00 + c), a),
+
+        0x22 => ldi!((h l), a),
+        0x2A => ldi!(a, (h l)),
+        0x32 => ldd!((h l), a),
+        0x3A => ldd!(a, (h l)),
+
+        // GMB 16bit loads
+
+        // LD rr,nn
+        0x01 => ld!(b c, nn),
+        0x11 => ld!(d e, nn),
+        0x21 => ld!(h l, nn),
+        0x31 => ld!(sp, nn),
+
+        0xF9 => ld!(sp, h l),
+
+        // TODO: push
+
+        // TODO: pop
+
+        // GMB 8bit arithmetic/logical
+
+        // ADD A,r
+        0x80 => add!(b),
+        0x81 => add!(c),
+        0x82 => add!(d),
+        0x83 => add!(e),
+        0x84 => add!(h),
+        0x85 => add!(l),
+        0x87 => add!(a),
+
+
+        // INC r
         0x04 => inc!(b),
         0x0C => inc!(c),
         0x14 => inc!(d),
@@ -519,8 +516,9 @@ impl Cpu {
         0x2C => inc!(l),
         0x3C => inc!(a),
 
-        0x35 => dec!((h l)),
+        0x34 => inc!((h l)),
 
+        // DEC r
         0x05 => dec!(b),
         0x0D => dec!(c),
         0x15 => dec!(d),
@@ -529,15 +527,27 @@ impl Cpu {
         0x2D => dec!(l),
         0x3D => dec!(a),
 
-        // TODO: add 16bit
+        0x35 => dec!((h l)),
 
-        0x80 => add!(b),
-        0x81 => add!(c),
-        0x82 => add!(d),
-        0x83 => add!(e),
-        0x84 => add!(h),
-        0x85 => add!(l),
-        0x87 => add!(a),
+        // TODO: daa
+        // TODO: cpl
+
+        // GMB 16bit arithmetic/logical
+
+        // INC rr
+        0x03 => inc!(b c),
+        0x13 => inc!(d e),
+        0x23 => inc!(h l),
+        0x33 => inc!(sp),
+
+        // DEC rr
+        0x0B => dec!(b c),
+        0x1B => dec!(d e),
+        0x2B => dec!(h l),
+        0x3B => dec!(sp),
+
+        // GMB CPU control
+        0x00 => nop!(),
 
         _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
       }
