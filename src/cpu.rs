@@ -262,6 +262,7 @@ impl Cpu {
         let addr = self.sp;
         let v = self.$rl;
         self.write(addr, v);
+        self.cycles += 16;
       })
     }
 
@@ -274,6 +275,7 @@ impl Cpu {
         self.$rl = l;
         self.$rh = h;
         // TODO: flags?
+        self.cycles += 12;
       })
     }
 
