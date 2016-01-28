@@ -418,6 +418,73 @@ impl Cpu {
       });
     }
 
+    macro_rules! sub {
+      // SUB A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let r = self.a.wrapping_sub(v);
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // SUB A,n
+      (n) => ({
+        let n = self.read_pc();
+        let r = self.a.wrapping_sub(n);
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // SUB A,r
+      ($r:ident) => ({
+        let r = self.a.wrapping_sub(self.$r);
+        // TODO: flags
+        self.a = r;
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! sbc {
+      // SBC A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let mut r = self.a.wrapping_sub(v);
+        if (self.f & C_FLAG) > 0 {
+          r = r.wrapping_sub(1);
+        }
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // SBC A,n
+      (n) => ({
+        let n = self.read_pc();
+        let mut r = self.a.wrapping_sub(n);
+        if (self.f & C_FLAG) > 0 {
+          r = r.wrapping_sub(1);
+        }
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // SBC A,r
+      ($r:ident) => ({
+        let mut r = self.a.wrapping_sub(self.$r);
+        if (self.f & C_FLAG) > 0 {
+          r = r.wrapping_sub(1);
+        }
+        // TODO: flags
+        self.a = r;
+        self.cycles += 4;
+      });
+    }
+
     macro_rules! flags {
       // First argument stands for znhc flags.
       //   z: set if $r is 0
@@ -604,6 +671,7 @@ impl Cpu {
 
         0x86 => add!((h l)),
 
+        // ADC A,r
         0x88 => adc!(b),
         0x89 => adc!(c),
         0x8A => adc!(d),
@@ -616,7 +684,32 @@ impl Cpu {
 
         0x8E => adc!((h l)),
 
-        // TODO: sub
+        // SUB A,r
+        0x90 => sub!(b),
+        0x91 => sub!(c),
+        0x92 => sub!(d),
+        0x93 => sub!(e),
+        0x94 => sub!(h),
+        0x95 => sub!(l),
+        0x97 => sub!(a),
+
+        0xD6 => sub!(n),
+
+        0x96 => sub!((h l)),
+
+        0x98 => sbc!(b),
+        0x99 => sbc!(c),
+        0x9A => sbc!(d),
+        0x9B => sbc!(e),
+        0x9C => sbc!(h),
+        0x9D => sbc!(l),
+        0x9F => sbc!(a),
+
+        0xDE => sbc!(n),
+
+        0x9E => sbc!((h l)),
+
+        // TODO: and
 
         // INC r
         0x04 => inc!(b),
