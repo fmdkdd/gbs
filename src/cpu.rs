@@ -572,6 +572,32 @@ impl Cpu {
       });
     }
 
+    macro_rules! cp {
+      // CP A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        self.a.wrapping_sub(v);
+        // TODO: flags
+        self.cycles += 8;
+      });
+
+      // CP A,n
+      (n) => ({
+        let n = self.read_pc();
+        self.a.wrapping_sub(n);
+        // TODO: flags
+        self.cycles += 8;
+      });
+
+      // CP A,r
+      ($r:ident) => ({
+        self.a.wrapping_sub(self.$r);
+        // TODO: flags
+        self.cycles += 4;
+      });
+    }
+
     macro_rules! flags {
       // First argument stands for znhc flags.
       //   z: set if $r is 0
@@ -835,6 +861,19 @@ impl Cpu {
 
         0xB6 => or!((h l)),
 
+        // CP r
+        0xB8 => cp!(b),
+        0xB9 => cp!(c),
+        0xBA => cp!(d),
+        0xBB => cp!(e),
+        0xBC => cp!(h),
+        0xBD => cp!(l),
+        0xBF => cp!(a),
+
+        0xFE => cp!(n),
+
+        0xBE => cp!((h l)),
+
         // INC r
         0x04 => inc!(b),
         0x0C => inc!(c),
@@ -873,6 +912,9 @@ impl Cpu {
         0x1B => dec!(d e),
         0x2B => dec!(h l),
         0x3B => dec!(sp),
+
+        // TODO: ADD SP,dd
+        // TODO: LD HL,SP+dd
 
         // GMB CPU control
         0x00 => nop!(),
