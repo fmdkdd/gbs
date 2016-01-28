@@ -18,7 +18,16 @@ pub struct Cpu {
   pub pc: u16,
   ram: [u8; RAM_LENGTH],
 
+  interrupts_enabled: bool,
   cycles: u64,
+}
+
+macro_rules! to_u16 {
+  ($h:expr, $l:expr) => (($h as u16) << 8 | ($l as u16));
+}
+
+macro_rules! from_u16 {
+  ($hl:expr) => ( (($hl >> 8) as u8, $hl as u8) )
 }
 
 impl Cpu {
@@ -36,6 +45,7 @@ impl Cpu {
       sp: 0,
       pc: 0,
       ram: [0; RAM_LENGTH],
+      interrupts_enabled: true,
       cycles: 0,
     }
   }
@@ -64,23 +74,33 @@ impl Cpu {
     ret
   }
 
+  fn read_pc_16le(&mut self) -> u16 {
+    let l = self.read_pc();
+    let h = self.read_pc();
+    to_u16!(h, l)
+  }
+
   fn read(&self, addr: u16) -> u8 {
     self.ram[addr as usize]
+  }
+
+  fn read_16le(&self, addr: u16) -> u16 {
+    let l = self.ram[addr as usize];
+    let h = self.ram[(addr + 1) as usize];
+    to_u16!(h, l)
   }
 
   fn write(&mut self, addr: u16, x: u8) {
     self.ram[addr as usize] = x;
   }
 
+  fn write_16le(&mut self, addr: u16, x: u16) {
+    let (h, l) = from_u16!(x);
+    self.ram[addr as usize] = l;
+    self.ram[(addr + 1) as usize] = h;
+  }
+
   pub fn run(&mut self, cycles: u64) {
-    macro_rules! to_u16 {
-      ($h:expr, $l:expr) => (($h as u16) << 8 | ($l as u16));
-    }
-
-    macro_rules! from_u16 {
-      ($hl:expr) => ( (($hl >> 8) as u8, $hl as u8) )
-    }
-
     macro_rules! nop {
       () => ({ self.cycles += 4; });
     }
@@ -834,6 +854,20 @@ impl Cpu {
       })
     }
 
+    macro_rules! di {
+      () => ({
+        self.interrupts_enabled = false;
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! ei {
+      () => ({
+        self.interrupts_enabled = true;
+        self.cycles += 4;
+      });
+    }
+
     macro_rules! flags {
       // First argument stands for znhc flags.
       //   z: set if $r is 0
@@ -872,7 +906,7 @@ impl Cpu {
         self.cycles += 4;
       });
 
-      (nz, nn) => ({
+      (nz) => ({
         let l = self.read_pc();
         let h = self.read_pc();
         if (self.f & Z_FLAG) == 0 {
@@ -882,7 +916,7 @@ impl Cpu {
         self.cycles += 12;
       });
 
-      (z, nn) => ({
+      (z) => ({
         let l = self.read_pc();
         let h = self.read_pc();
         if (self.f & Z_FLAG) > 0 {
@@ -892,7 +926,7 @@ impl Cpu {
         self.cycles += 12;
       });
 
-      (nc, nn) => ({
+      (nc) => ({
         let l = self.read_pc();
         let h = self.read_pc();
         if (self.f & C_FLAG) == 0 {
@@ -902,7 +936,7 @@ impl Cpu {
         self.cycles += 12;
       });
 
-      (c, nn) => ({
+      (c) => ({
         let l = self.read_pc();
         let h = self.read_pc();
         if (self.f & C_FLAG) > 0 {
@@ -910,6 +944,176 @@ impl Cpu {
           self.cycles += 4;
         }
         self.cycles += 12;
+      });
+    }
+
+    macro_rules! jr {
+      (dd) => ({
+        let dd = self.read_pc() as i8;
+        self.pc = self.pc.wrapping_add(dd as u16);
+        self.cycles += 12;
+      });
+
+      (nz) => ({
+        let dd = self.read_pc() as i8;
+        if (self.f & Z_FLAG) == 0 {
+          self.pc = self.pc.wrapping_add(dd as u16);
+          self.cycles += 4;
+        }
+        self.cycles += 8;
+      });
+
+      (z) => ({
+        let dd = self.read_pc() as i8;
+        if (self.f & Z_FLAG) > 0 {
+          self.pc = self.pc.wrapping_add(dd as u16);
+          self.cycles += 4;
+        }
+        self.cycles += 8;
+      });
+
+      (nc) => ({
+        let dd = self.read_pc() as i8;
+        if (self.f & C_FLAG) == 0 {
+          self.pc = self.pc.wrapping_add(dd as u16);
+          self.cycles += 4;
+        }
+        self.cycles += 8;
+      });
+
+      (c) => ({
+        let dd = self.read_pc() as i8;
+        if (self.f & C_FLAG) > 0 {
+          self.pc = self.pc.wrapping_add(dd as u16);
+          self.cycles += 4;
+        }
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! call {
+      (nn) => ({
+        // Push PC to stack
+        self.sp -= 2;
+        let sp = self.sp;
+        let pc = self.pc;
+        self.write_16le(sp, pc);
+        // Jump to nn
+        self.pc = self.read_pc_16le();
+        self.cycles += 24;
+      });
+
+      (nz) => ({
+        let addr = self.read_pc_16le();
+        if (self.f & Z_FLAG) == 0 {
+          // Push PC to stack
+          self.sp -= 2;
+          let sp = self.sp;
+          let pc = self.pc;
+          self.write_16le(sp, pc);
+          // Jump to nn
+          self.pc = addr;
+          self.cycles += 12;
+        }
+        self.cycles += 12;
+      });
+
+      (z) => ({
+        let addr = self.read_pc_16le();
+        if (self.f & Z_FLAG) > 0 {
+          // Push PC to stack
+          self.sp -= 2;
+          let sp = self.sp;
+          let pc = self.pc;
+          self.write_16le(sp, pc);
+          // Jump to nn
+          self.pc = addr;
+          self.cycles += 12;
+        }
+        self.cycles += 12;
+      });
+
+      (nc) => ({
+        let addr = self.read_pc_16le();
+        if (self.f & C_FLAG) == 0 {
+          // Push PC to stack
+          self.sp -= 2;
+          let sp = self.sp;
+          let pc = self.pc;
+          self.write_16le(sp, pc);
+          // Jump to nn
+          self.pc = addr;
+          self.cycles += 12;
+        }
+        self.cycles += 12;
+      });
+
+      (c) => ({
+        let addr = self.read_pc_16le();
+        if (self.f & C_FLAG) > 0 {
+          // Push PC to stack
+          self.sp -= 2;
+          let sp = self.sp;
+          let pc = self.pc;
+          self.write_16le(sp, pc);
+          // Jump to nn
+          self.pc = addr;
+          self.cycles += 12;
+        }
+        self.cycles += 12;
+      });
+    }
+
+    macro_rules! ret {
+      () => ({
+        self.pc = self.read_16le(self.sp);
+        self.sp += 2;
+        self.cycles += 16;
+      });
+
+      (nz) => ({
+        if (self.f & Z_FLAG) == 0 {
+          self.pc = self.read_16le(self.sp);
+          self.sp += 2;
+          self.cycles += 12;
+        }
+        self.cycles += 8;
+      });
+
+      (z) => ({
+        if (self.f & Z_FLAG) > 0 {
+          self.pc = self.read_16le(self.sp);
+          self.sp += 2;
+          self.cycles += 12;
+        }
+        self.cycles += 8;
+      });
+
+      (nc) => ({
+        if (self.f & C_FLAG) == 0 {
+          self.pc = self.read_16le(self.sp);
+          self.sp += 2;
+          self.cycles += 12;
+        }
+        self.cycles += 8;
+      });
+
+      (c) => ({
+        if (self.f & C_FLAG) > 0 {
+          self.pc = self.read_16le(self.sp);
+          self.sp += 2;
+          self.cycles += 12;
+        }
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! reti {
+      () => ({
+        self.pc = self.read_16le(self.sp);
+        self.sp += 2;
+        self.interrupts_enabled = true;
+        self.cycles += 16;
       });
     }
 
@@ -1318,15 +1522,12 @@ impl Cpu {
         // GMB CPU control
 
         0x3F => ccf!(),
-
         0x37 => scf!(),
-
         0x00 => nop!(),
-
         // TODO: halt
         // TODO: stop
-        // TODO: di
-        // TODO: ei
+        0xF3 => di!(),
+        0xFB => ei!(),
 
         // GMB jumps
 
@@ -1335,10 +1536,34 @@ impl Cpu {
         0xE9 => jp!(hl),
 
         // JP f,nn
-        0xC2 => jp!(nz, nn),
-        0xCA => jp!(z, nn),
-        0xD2 => jp!(nc, nn),
-        0xDA => jp!(c, nn),
+        0xC2 => jp!(nz),
+        0xCA => jp!(z),
+        0xD2 => jp!(nc),
+        0xDA => jp!(c),
+
+        0x18 => jr!(dd),
+
+        // JR f,PC+dd
+        0x20 => jr!(nz),
+        0x28 => jr!(z),
+        0x30 => jr!(nc),
+        0x38 => jr!(c),
+
+        0xCD => call!(nn),
+
+        // CALL f,nn
+        0xC4 => call!(nz),
+        0xCC => call!(z),
+        0xD4 => call!(nc),
+        0xDC => call!(c),
+
+        0xC9 => ret!(),
+        0xC0 => ret!(nz),
+        0xC8 => ret!(z),
+        0xD0 => ret!(nc),
+        0xD8 => ret!(c),
+
+        0xD9 => reti!(),
 
         _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
       }
