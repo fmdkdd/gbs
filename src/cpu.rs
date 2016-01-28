@@ -485,6 +485,93 @@ impl Cpu {
       });
     }
 
+    macro_rules! and {
+      // AND A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let r = self.a & v;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // AND A,n
+      (n) => ({
+        let n = self.read_pc();
+        let r = self.a & n;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // AND A,r
+      ($r:ident) => ({
+        let r = self.a & self.$r;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! xor {
+      // XOR A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let r = self.a ^ v;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // XOR A,n
+      (n) => ({
+        let n = self.read_pc();
+        let r = self.a ^ n;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // XOR A,r
+      ($r:ident) => ({
+        let r = self.a ^ self.$r;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! or {
+      // OR A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let r = self.a | v;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // OR A,n
+      (n) => ({
+        let n = self.read_pc();
+        let r = self.a | n;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // OR A,r
+      ($r:ident) => ({
+        let r = self.a | self.$r;
+        // TODO: flags
+        self.a = r;
+        self.cycles += 4;
+      });
+    }
+
     macro_rules! flags {
       // First argument stands for znhc flags.
       //   z: set if $r is 0
@@ -709,7 +796,44 @@ impl Cpu {
 
         0x9E => sbc!((h l)),
 
-        // TODO: and
+        // AND r
+        0xA0 => and!(b),
+        0xA1 => and!(c),
+        0xA2 => and!(d),
+        0xA3 => and!(e),
+        0xA4 => and!(h),
+        0xA5 => and!(l),
+        0xA7 => and!(a),
+
+        0xE6 => and!(n),
+
+        0xA6 => and!((h l)),
+
+        // XOR r
+        0xA8 => xor!(b),
+        0xA9 => xor!(c),
+        0xAA => xor!(d),
+        0xAB => xor!(e),
+        0xAC => xor!(h),
+        0xAD => xor!(l),
+        0xAF => xor!(a),
+
+        0xEE => xor!(n),
+
+        0xAE => xor!((h l)),
+
+        // OR r
+        0xB0 => or!(b),
+        0xB1 => or!(c),
+        0xB2 => or!(d),
+        0xB3 => or!(e),
+        0xB4 => or!(h),
+        0xB5 => or!(l),
+        0xB7 => or!(a),
+
+        0xF6 => or!(n),
+
+        0xB6 => or!((h l)),
 
         // INC r
         0x04 => inc!(b),
