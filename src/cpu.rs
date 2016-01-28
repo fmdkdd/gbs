@@ -252,6 +252,31 @@ impl Cpu {
       })
     }
 
+    macro_rules! push {
+      ($rh:ident $rl:ident) => ({
+        self.sp -= 1;
+        let addr = self.sp;
+        let v = self.$rh;
+        self.write(addr, v);
+        self.sp -= 1;
+        let addr = self.sp;
+        let v = self.$rl;
+        self.write(addr, v);
+      })
+    }
+
+    macro_rules! pop {
+      ($rh:ident $rl:ident) => ({
+        let l = self.read(self.sp);
+        self.sp += 1;
+        let h = self.read(self.sp);
+        self.sp += 1;
+        self.$rl = l;
+        self.$rh = h;
+        // TODO: flags?
+      })
+    }
+
     macro_rules! inc {
       // INC (HL)
       ((h l)) => ({
@@ -491,9 +516,17 @@ impl Cpu {
 
         0xF9 => ld!(sp, h l),
 
-        // TODO: push
+        // PUSH rr
+        0xC5 => push!(b c),
+        0xD5 => push!(d e),
+        0xE5 => push!(h l),
+        0xF5 => push!(a f),
 
-        // TODO: pop
+        // POP rr
+        0xC1 => pop!(b c),
+        0xD1 => pop!(d e),
+        0xE1 => pop!(h l),
+        0xF1 => pop!(a f),
 
         // GMB 8bit arithmetic/logical
 
