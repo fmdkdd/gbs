@@ -895,9 +895,8 @@ impl Cpu {
 
     macro_rules! jp {
       (nn) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
-        self.pc = to_u16!(h, l);
+        let addr = self.read_pc_16le();
+        self.pc = addr;
         self.cycles += 16;
       });
 
@@ -907,40 +906,36 @@ impl Cpu {
       });
 
       (nz) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
+        let addr = self.read_pc_16le();
         if (self.f & Z_FLAG) == 0 {
-          self.pc = to_u16!(h, l);
+          self.pc = addr;
           self.cycles += 4;
         }
         self.cycles += 12;
       });
 
       (z) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
+        let addr = self.read_pc_16le();
         if (self.f & Z_FLAG) > 0 {
-          self.pc = to_u16!(h, l);
+          self.pc = addr;
           self.cycles += 4;
         }
         self.cycles += 12;
       });
 
       (nc) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
+        let addr = self.read_pc_16le();
         if (self.f & C_FLAG) == 0 {
-          self.pc = to_u16!(h, l);
+          self.pc = addr;
           self.cycles += 4;
         }
         self.cycles += 12;
       });
 
       (c) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
+        let addr = self.read_pc_16le();
         if (self.f & C_FLAG) > 0 {
-          self.pc = to_u16!(h, l);
+          self.pc = addr;
           self.cycles += 4;
         }
         self.cycles += 12;
