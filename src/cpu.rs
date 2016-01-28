@@ -740,6 +740,86 @@ impl Cpu {
       });
     }
 
+    macro_rules! sla {
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Bit 7 to carry flag
+        self.f = (v & 0x80) << 4;
+        v = v << 1;
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      ($r:ident) => ({
+        // Bit 7 to carry flag
+        self.f = (self.$r & 0x80) << 4;
+        self.$r = self.$r << 1;
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! swap {
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Bit 7 to carry flag
+        self.f = (v & 0x80) << 4;
+        v = v.rotate_left(4);
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      ($r:ident) => ({
+        // Bit 7 to carry flag
+        self.f = (self.$r & 0x80) << 4;
+        self.$r = self.$r.rotate_left(4);
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! sra {
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Keep bit 7
+        let b7 = v & 0x80;
+        // Bit 0 to carry flag
+        self.f = (v & 0x1) << 4;
+        v = b7 | (v >> 1);
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      ($r:ident) => ({
+        // Keep bit 7
+        let b7 = self.$r & 0x80;
+        // Bit 0 to carry flag
+        self.f = (self.$r & 0x1) << 4;
+        self.$r = b7 | (self.$r >> 1);
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! srl {
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Bit 0 to carry flag
+        self.f = (v & 0x1) << 4;
+        v = v >> 1;
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      ($r:ident) => ({
+        // Bit 0 to carry flag
+        self.f = (self.$r & 0x1) << 4;
+        self.$r = self.$r >> 1;
+        self.cycles += 8;
+      });
+    }
+
     macro_rules! flags {
       // First argument stands for znhc flags.
       //   z: set if $r is 0
@@ -1073,6 +1153,8 @@ impl Cpu {
           let cb_opcode = self.read_pc();
           match cb_opcode {
 
+            // TODO: zero flags for all
+
             // RLC r
             0x00 => rlc!(b),
             0x01 => rlc!(c),
@@ -1116,6 +1198,50 @@ impl Cpu {
             0x1F => rr!(a),
 
             0x1E => rr!((h l)),
+
+            // SLA r
+            0x20 => sla!(b),
+            0x21 => sla!(c),
+            0x22 => sla!(d),
+            0x23 => sla!(e),
+            0x24 => sla!(h),
+            0x25 => sla!(l),
+            0x27 => sla!(a),
+
+            0x26 => sla!((h l)),
+
+            // SWAP r
+            0x30 => swap!(b),
+            0x31 => swap!(c),
+            0x32 => swap!(d),
+            0x33 => swap!(e),
+            0x34 => swap!(h),
+            0x35 => swap!(l),
+            0x37 => swap!(a),
+
+            0x36 => swap!((h l)),
+
+            // SRA r
+            0x28 => sra!(b),
+            0x29 => sra!(c),
+            0x2A => sra!(d),
+            0x2B => sra!(e),
+            0x2C => sra!(h),
+            0x2D => sra!(l),
+            0x2F => sra!(a),
+
+            0x2E => sra!((h l)),
+
+            // SRL r
+            0x38 => srl!(b),
+            0x39 => srl!(c),
+            0x3A => srl!(d),
+            0x3B => srl!(e),
+            0x3C => srl!(h),
+            0x3D => srl!(l),
+            0x3F => srl!(a),
+
+            0x3E => srl!((h l)),
 
             _ => panic!(format!("Unknown opcode 0xCB{:x}", cb_opcode))
           }
