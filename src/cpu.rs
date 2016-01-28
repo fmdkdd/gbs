@@ -175,6 +175,15 @@ impl Cpu {
         self.cycles += 12;
       });
 
+      (hl, sp+dd) => ({
+        let dd = self.read_pc() as i8;
+        let (h, l) = from_u16!(self.sp.wrapping_add(dd as u16));
+        self.l = l;
+        self.h = h;
+        // TODO: flags
+        self.cycles += 12;
+      });
+
       // LD r,n
       ($r1:ident, n) => ({
         let n = self.read_pc();
@@ -378,6 +387,14 @@ impl Cpu {
         self.a = r;
         self.cycles += 4;
       });
+
+      // ADD SP,dd
+      (sp, dd) => ({
+        let dd = self.read_pc() as i8;
+        self.sp = self.sp.wrapping_add(dd as u16);
+        // TODO: flags
+        self.cycles += 16;
+      })
     }
 
     macro_rules! adc {
@@ -913,8 +930,9 @@ impl Cpu {
         0x2B => dec!(h l),
         0x3B => dec!(sp),
 
-        // TODO: ADD SP,dd
-        // TODO: LD HL,SP+dd
+        0xE8 => add!(sp, dd),
+
+        0xF8 => ld!(hl, sp+dd),
 
         // GMB CPU control
         0x00 => nop!(),
