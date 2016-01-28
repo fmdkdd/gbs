@@ -350,10 +350,69 @@ impl Cpu {
     }
 
     macro_rules! add {
+      // ADD A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let r = self.a.wrapping_add(v);
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // ADD A,n
+      (n) => ({
+        let n = self.read_pc();
+        let r = self.a.wrapping_add(n);
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // ADD A,r
       ($r:ident) => ({
         let r = self.a.wrapping_add(self.$r);
         // TODO: flags
         self.a = r;
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! adc {
+      // ADC A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let v = self.read(addr);
+        let mut r = self.a.wrapping_add(v);
+        if (self.f & C_FLAG) > 0 {
+          r = r.wrapping_add(1);
+        }
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // ADC A,n
+      (n) => ({
+        let n = self.read_pc();
+        let mut r = self.a.wrapping_add(n);
+        if (self.f & C_FLAG) > 0 {
+          r = r.wrapping_add(1);
+        }
+        // TODO: flags
+        self.a = r;
+        self.cycles += 8;
+      });
+
+      // ADC A,r
+      ($r:ident) => ({
+        let mut r = self.a.wrapping_add(self.$r);
+        if (self.f & C_FLAG) > 0 {
+          r = r.wrapping_add(1);
+        }
+        // TODO: flags
+        self.a = r;
+        self.cycles += 4;
       });
     }
 
@@ -539,6 +598,23 @@ impl Cpu {
         0x85 => add!(l),
         0x87 => add!(a),
 
+        0xC6 => add!(n),
+
+        0x86 => add!((h l)),
+
+        0x88 => adc!(b),
+        0x89 => adc!(c),
+        0x8A => adc!(d),
+        0x8B => adc!(e),
+        0x8C => adc!(h),
+        0x8D => adc!(l),
+        0x8F => adc!(a),
+
+        0xCE => adc!(n),
+
+        0x8E => adc!((h l)),
+
+        // TODO: sub
 
         // INC r
         0x04 => inc!(b),
