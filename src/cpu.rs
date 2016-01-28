@@ -615,6 +615,131 @@ impl Cpu {
       });
     }
 
+    macro_rules! rlca {
+      () => ({
+        // Bit 7 to carry flag
+        self.f = (self.a & 0x80) << 4;
+        self.a = self.a.rotate_left(1);
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! rlc {
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Bit 7 to carry flag
+        self.f = (v & 0x80) << 4;
+        v = v.rotate_left(1);
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      // RLC r
+      ($r:ident) => ({
+        // Bit 7 to carry flag
+        self.f = (self.$r & 0x80) << 4;
+        self.$r = self.$r.rotate_left(1);
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! rla {
+      () => ({
+        // Get carry
+        let c = (self.f & C_FLAG) >> 4;
+        // Bit 7 to carry flag
+        self.f = (self.a & 0x80) << 4;
+        self.a = (self.a << 1) | c;
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! rl {
+      ((h l)) => ({
+        // Get carry
+        let c = (self.f & C_FLAG) >> 4;
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Bit 7 to carry flag
+        self.f = (v & 0x80) << 4;
+        v = (v << 1) | c;
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      ($r:ident) => ({
+        // Get carry
+        let c = (self.f & C_FLAG) >> 4;
+        // Bit 7 to carry flag
+        self.f = (self.$r & 0x80) << 4;
+        self.$r = (self.$r << 1) | c;
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! rrca {
+      () => ({
+        // Bit 0 to carry flag
+        self.f = (self.a & 0x1) << 4;
+        self.a = self.a.rotate_right(1);
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! rrc {
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Bit 0 to carry flag
+        self.f = (v & 0x1) << 4;
+        v = v.rotate_right(1);
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      ($r:ident) => ({
+        // Bit 0 to carry flag
+        self.f = (self.$r & 0x1) << 4;
+        self.$r = self.$r.rotate_right(1);
+        self.cycles += 8;
+      });
+    }
+
+    macro_rules! rra {
+      () => ({
+        // Get carry as bit 7
+        let c = (self.f & C_FLAG) << 3;
+        // Bit 0 to carry flag
+        self.f = (self.a & 0x1) << 4;
+        self.a = c | (self.a >> 1);
+        self.cycles += 4;
+      });
+    }
+
+    macro_rules! rr {
+      ((h l)) => ({
+        // Get carry as bit 7
+        let c = (self.f & C_FLAG) << 3;
+        let addr = to_u16!(self.h, self.l);
+        let mut v = self.read(addr);
+        // Bit 0 to carry flag
+        self.f = (v & 0x1) << 4;
+        v = c | (v >> 1);
+        self.write(addr, v);
+        self.cycles += 16;
+      });
+
+      ($r:ident) => ({
+        // Get carry as bit 7
+        let c = (self.f & C_FLAG) << 3;
+        // Bit 0 to carry flag
+        self.f = (self.$r & 0x1) << 4;
+        self.$r = c | (self.$r >> 1);
+        self.cycles += 8;
+      });
+    }
+
     macro_rules! flags {
       // First argument stands for znhc flags.
       //   z: set if $r is 0
@@ -933,6 +1058,68 @@ impl Cpu {
         0xE8 => add!(sp, dd),
 
         0xF8 => ld!(hl, sp+dd),
+
+        // GMB rotate and shift
+
+        0x07 => rlc!(a),
+
+        0x17 => rl!(a),
+
+        0x0F => rrc!(a),
+
+        0x1F => rr!(a),
+
+        0xCB => {
+          let cb_opcode = self.read_pc();
+          match cb_opcode {
+
+            // RLC r
+            0x00 => rlc!(b),
+            0x01 => rlc!(c),
+            0x02 => rlc!(d),
+            0x03 => rlc!(e),
+            0x04 => rlc!(h),
+            0x05 => rlc!(l),
+            0x07 => rlc!(a),
+
+            0x06 => rlc!((h l)),
+
+            // RR r
+            0x10 => rl!(b),
+            0x11 => rl!(c),
+            0x12 => rl!(d),
+            0x13 => rl!(e),
+            0x14 => rl!(h),
+            0x15 => rl!(l),
+            0x17 => rl!(a),
+
+            0x16 => rl!((h l)),
+
+            // RRC r
+            0x08 => rrc!(b),
+            0x09 => rrc!(c),
+            0x0A => rrc!(d),
+            0x0B => rrc!(e),
+            0x0C => rrc!(h),
+            0x0D => rrc!(l),
+            0x0F => rrc!(a),
+
+            0x0E => rrc!((h l)),
+
+            // RR r
+            0x18 => rr!(b),
+            0x19 => rr!(c),
+            0x1A => rr!(d),
+            0x1B => rr!(e),
+            0x1C => rr!(h),
+            0x1D => rr!(l),
+            0x1F => rr!(a),
+
+            0x1E => rr!((h l)),
+
+            _ => panic!(format!("Unknown opcode 0xCB{:x}", cb_opcode))
+          }
+        },
 
         // GMB CPU control
         0x00 => nop!(),
