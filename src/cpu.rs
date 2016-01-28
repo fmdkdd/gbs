@@ -820,6 +820,20 @@ impl Cpu {
       });
     }
 
+    macro_rules! ccf {
+      () => ({
+        self.f = self.f ^ C_FLAG;
+        self.cycles += 4;
+      })
+    }
+
+    macro_rules! scf {
+      () => ({
+        self.f = self.f & C_FLAG;
+        self.cycles += 4;
+      })
+    }
+
     macro_rules! flags {
       // First argument stands for znhc flags.
       //   z: set if $r is 0
@@ -842,6 +856,60 @@ impl Cpu {
           | ((($v == 0) as u8) << 5)
           | N_FLAG
           | (self.f & C_FLAG);
+      });
+    }
+
+    macro_rules! jp {
+      (nn) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        self.pc = to_u16!(h, l);
+        self.cycles += 16;
+      });
+
+      (hl) => ({
+        self.pc = to_u16!(self.h, self.l);
+        self.cycles += 4;
+      });
+
+      (nz, nn) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        if (self.f & Z_FLAG) == 0 {
+          self.pc = to_u16!(h, l);
+          self.cycles += 4;
+        }
+        self.cycles += 12;
+      });
+
+      (z, nn) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        if (self.f & Z_FLAG) > 0 {
+          self.pc = to_u16!(h, l);
+          self.cycles += 4;
+        }
+        self.cycles += 12;
+      });
+
+      (nc, nn) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        if (self.f & C_FLAG) == 0 {
+          self.pc = to_u16!(h, l);
+          self.cycles += 4;
+        }
+        self.cycles += 12;
+      });
+
+      (c, nn) => ({
+        let l = self.read_pc();
+        let h = self.read_pc();
+        if (self.f & C_FLAG) > 0 {
+          self.pc = to_u16!(h, l);
+          self.cycles += 4;
+        }
+        self.cycles += 12;
       });
     }
 
@@ -1248,7 +1316,29 @@ impl Cpu {
         },
 
         // GMB CPU control
+
+        0x3F => ccf!(),
+
+        0x37 => scf!(),
+
         0x00 => nop!(),
+
+        // TODO: halt
+        // TODO: stop
+        // TODO: di
+        // TODO: ei
+
+        // GMB jumps
+
+        0xC3 => jp!(nn),
+
+        0xE9 => jp!(hl),
+
+        // JP f,nn
+        0xC2 => jp!(nz, nn),
+        0xCA => jp!(z, nn),
+        0xD2 => jp!(nc, nn),
+        0xDA => jp!(c, nn),
 
         _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
       }
