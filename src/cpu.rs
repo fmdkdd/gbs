@@ -1112,6 +1112,19 @@ impl Cpu {
       });
     }
 
+    macro_rules! rst {
+      ($n:expr) => ({
+        // Push PC to stack
+        self.sp -= 2;
+        let sp = self.sp;
+        let pc = self.pc;
+        self.write_16le(sp, pc);
+        // Jump to $0000 + n
+        self.pc = $n as u16;
+        self.cycles += 16;
+      });
+    }
+
 
     self.cycles = 0;
 
@@ -1552,6 +1565,7 @@ impl Cpu {
         0xD4 => call!(nc),
         0xDC => call!(c),
 
+        // RET f
         0xC9 => ret!(),
         0xC0 => ret!(nz),
         0xC8 => ret!(z),
@@ -1559,6 +1573,16 @@ impl Cpu {
         0xD8 => ret!(c),
 
         0xD9 => reti!(),
+
+        // RST n
+        0xC7 => rst!(0x00),
+        0xCF => rst!(0x08),
+        0xD7 => rst!(0x10),
+        0xDF => rst!(0x18),
+        0xE7 => rst!(0x20),
+        0xEF => rst!(0x28),
+        0xF7 => rst!(0x30),
+        0xFF => rst!(0x38),
 
         _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
       }
