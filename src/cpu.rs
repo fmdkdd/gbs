@@ -128,9 +128,7 @@ impl Cpu {
 
       // LD (nn),A
       ((n n), a) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
-        let addr = to_u16!(h, l);
+        let addr = self.read_pc_16le();
         let v = self.a;
         self.write(addr, v);
         self.cycles += 16;
@@ -171,9 +169,7 @@ impl Cpu {
 
       // LD A,(nn)
       (a, (n n)) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
-        let addr = to_u16!(h, l);
+        let addr = self.read_pc_16le();
         self.a = self.read(addr);
         self.cycles += 16;
       });
@@ -189,9 +185,7 @@ impl Cpu {
 
       // LD SP,nn
       (sp, nn) => ({
-        let l = self.read_pc();
-        let h = self.read_pc();
-        self.sp = to_u16!(h, l);
+        self.sp = self.read_pc_16le();
         self.cycles += 12;
       });
 
@@ -986,28 +980,28 @@ impl Cpu {
       });
     }
 
-    macro_rules! call {
-      (nn) => ({
+    macro_rules! call1 {
+      ($nn:expr) => ({
         // Push PC to stack
         self.sp -= 2;
         let sp = self.sp;
         let pc = self.pc;
         self.write_16le(sp, pc);
         // Jump to nn
-        self.pc = self.read_pc_16le();
+        self.pc = $nn;
+      });
+    }
+
+    macro_rules! call {
+      (nn) => ({
+        call1!(self.read_pc_16le());
         self.cycles += 24;
       });
 
       (nz) => ({
         let addr = self.read_pc_16le();
         if (self.f & Z_FLAG) == 0 {
-          // Push PC to stack
-          self.sp -= 2;
-          let sp = self.sp;
-          let pc = self.pc;
-          self.write_16le(sp, pc);
-          // Jump to nn
-          self.pc = addr;
+          call1!(addr);
           self.cycles += 12;
         }
         self.cycles += 12;
@@ -1016,13 +1010,7 @@ impl Cpu {
       (z) => ({
         let addr = self.read_pc_16le();
         if (self.f & Z_FLAG) > 0 {
-          // Push PC to stack
-          self.sp -= 2;
-          let sp = self.sp;
-          let pc = self.pc;
-          self.write_16le(sp, pc);
-          // Jump to nn
-          self.pc = addr;
+          call1!(addr);
           self.cycles += 12;
         }
         self.cycles += 12;
@@ -1031,13 +1019,7 @@ impl Cpu {
       (nc) => ({
         let addr = self.read_pc_16le();
         if (self.f & C_FLAG) == 0 {
-          // Push PC to stack
-          self.sp -= 2;
-          let sp = self.sp;
-          let pc = self.pc;
-          self.write_16le(sp, pc);
-          // Jump to nn
-          self.pc = addr;
+          call1!(addr);
           self.cycles += 12;
         }
         self.cycles += 12;
@@ -1046,13 +1028,7 @@ impl Cpu {
       (c) => ({
         let addr = self.read_pc_16le();
         if (self.f & C_FLAG) > 0 {
-          // Push PC to stack
-          self.sp -= 2;
-          let sp = self.sp;
-          let pc = self.pc;
-          self.write_16le(sp, pc);
-          // Jump to nn
-          self.pc = addr;
+          call1!(addr);
           self.cycles += 12;
         }
         self.cycles += 12;
@@ -1114,13 +1090,8 @@ impl Cpu {
 
     macro_rules! rst {
       ($n:expr) => ({
-        // Push PC to stack
-        self.sp -= 2;
-        let sp = self.sp;
-        let pc = self.pc;
-        self.write_16le(sp, pc);
         // Jump to $0000 + n
-        self.pc = $n as u16;
+        call1!($n as u16);
         self.cycles += 16;
       });
     }
