@@ -2,7 +2,7 @@ const RAM_LENGTH : usize = 0x10000;
 
 const Z_FLAG : u8 = 0x80;
 const N_FLAG : u8 = 0x40;
-const H_FLAG : u8 = 0x20;
+// const H_FLAG : u8 = 0x20;
 const C_FLAG : u8 = 0x10;
 
 pub struct Cpu {

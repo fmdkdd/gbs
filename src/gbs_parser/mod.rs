@@ -14,7 +14,7 @@ macro_rules! fail {
 pub type Result<T> = result::Result<T, GbsError>;
 
 #[derive(Debug)]
-enum GbsError {
+pub enum GbsError {
   Io(io::Error),
   WrongHeader,
   UnknownVersion,
