@@ -1573,7 +1573,7 @@ mod tests {
 
   // Use macros to generate the test functions, since this is a lot of repetitive
   // code, and we want to test all opcodes.
-
+  //
   // Have to pass the name of each generated function, since we cannot generate
   // identifiers using macros (one day, maybe).  Still repetitive, but more
   // palatable.
@@ -1677,8 +1677,111 @@ mod tests {
       }
     };
 
-
   }
+
+  macro_rules! expect_eq {
+    ($l: expr, $r: expr) => ({
+      let l = $l;
+      let r = $r;
+      assert!(r == l, "expected {}, got {}", r, l);
+    });
+  }
+
+  macro_rules! expect_cycles {
+    ($cycles: expr, $n: expr) => ({
+      assert!($cycles == $n, "expected {} cycles, got {}", $n, $cycles);
+    });
+  }
+
+  macro_rules! expect_flag {
+    (z, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected zero flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+
+    (n, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected add/sub flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+
+    (h, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected half carry flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+
+    (c, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected carry flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+  }
+
+  macro_rules! test_inc {
+    // INC r
+    ($name: ident, $opcode: expr, $r: ident) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.$r = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$r, 1);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.$r = 0xFF;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$r, 0);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 1);
+        }
+      }
+    };
+  }
+
+  #[test]
+  fn nop() {
+    let mut cpu = Cpu::new();
+
+    cpu.pc = 0;
+    cpu.ram[0] = 0x00;
+    let cycles = cpu.step();
+
+    assert_eq!(4, cycles);
+  }
+
+  test_inc!(inc_b, 0x04, b);
+  test_inc!(inc_c, 0x0C, c);
+  test_inc!(inc_d, 0x14, d);
+  test_inc!(inc_e, 0x1C, e);
+  test_inc!(inc_h, 0x24, h);
+  test_inc!(inc_l, 0x2C, l);
+  // test_inc!(inc_hl,0x34, hl);
+  test_inc!(inc_a, 0x3C, a);
 
   test_ld!(ld_b_n, 0x06, b, n);
   test_ld!(ld_c_n, 0x0E, c, n);
