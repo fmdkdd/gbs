@@ -1567,21 +1567,197 @@ impl Cpu {
   }
 }
 
-
 #[cfg(test)]
 mod tests {
   use super::*;
 
-  #[test]
-  fn test_ld() {
-    let mut cpu = Cpu::new();
+  // Use macros to generate the test functions, since this is a lot of repetitive
+  // code, and we want to test all opcodes.
 
-    cpu.b = 0x0;
-    cpu.c = 0xFF;
-    cpu.ram[0x0] = 0x41;
-    let cycles = cpu.step();
+  // Have to pass the name of each generated function, since we cannot generate
+  // identifiers using macros (one day, maybe).  Still repetitive, but more
+  // palatable.
+  macro_rules! test_ld {
 
-    assert_eq!(cpu.b, cpu.c);
-    assert_eq!(4, cycles);
+    // LD (hl),n
+    ($name: ident, $opcode: expr, (hl), n) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+        let n = 0xBA;
+
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.ram[0xDEAD] = 0;
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = n;
+        let cycles = cpu.step();
+
+        assert_eq!(n, cpu.ram[0xDEAD]);
+        assert_eq!(12, cycles);
+      }
+    };
+
+    // LD (hl),r
+    ($name: ident, $opcode: expr, (hl), $r:ident) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.$r = 0xBA;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.ram[0xDEAD] = 0;
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        assert_eq!(cpu.$r, cpu.ram[0xDEAD]);
+        assert_eq!(8, cycles);
+      }
+    };
+
+    // LD r,(hl)
+    ($name: ident, $opcode: expr, $r:ident, (hl)) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.$r = 0;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.ram[0xDEAD] = 0xBA;
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        assert_eq!(cpu.ram[0xDEAD], cpu.$r);
+        assert_eq!(8, cycles);
+      }
+    };
+
+    // LD r,n
+    ($name: ident, $opcode: expr, $r:ident, n) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+        let n = 0xBA;
+
+        cpu.$r = 0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = n;
+        let cycles = cpu.step();
+
+        assert_eq!(n, cpu.$r);
+        assert_eq!(8, cycles);
+      }
+    };
+
+    // LD r,r
+    ($name: ident, $opcode: expr, $r1:ident, $r2:ident) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.$r1 = 0;
+        cpu.$r2 = 0xBA;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        assert_eq!(cpu.$r1, cpu.$r2);
+        assert_eq!(4, cycles);
+      }
+    };
+
+
   }
+
+  test_ld!(ld_b_n, 0x06, b, n);
+  test_ld!(ld_c_n, 0x0E, c, n);
+  test_ld!(ld_d_n, 0x16, d, n);
+  test_ld!(ld_e_n, 0x1E, e, n);
+  test_ld!(ld_h_n, 0x26, h, n);
+  test_ld!(ld_l_n, 0x2E, l, n);
+  test_ld!(ld_hl_n,0x36, (hl), n);
+  test_ld!(ld_a_n, 0x3E, a, n);
+
+  test_ld!(ld_b_b, 0x40, b, b);
+  test_ld!(ld_b_c, 0x41, b, c);
+  test_ld!(ld_b_d, 0x42, b, d);
+  test_ld!(ld_b_e, 0x43, b, e);
+  test_ld!(ld_b_h, 0x44, b, h);
+  test_ld!(ld_b_l, 0x45, b, l);
+  test_ld!(ld_b_hl,0x46, b, (hl));
+  test_ld!(ld_b_a, 0x47, b, a);
+
+  test_ld!(ld_c_b, 0x48, c, b);
+  test_ld!(ld_c_c, 0x49, c, c);
+  test_ld!(ld_c_d, 0x4A, c, d);
+  test_ld!(ld_c_e, 0x4B, c, e);
+  test_ld!(ld_c_h, 0x4C, c, h);
+  test_ld!(ld_c_l, 0x4D, c, l);
+  test_ld!(ld_c_hl,0x4E, c, (hl));
+  test_ld!(ld_c_a, 0x4F, c, a);
+
+  test_ld!(ld_d_b, 0x50, d, b);
+  test_ld!(ld_d_c, 0x51, d, c);
+  test_ld!(ld_d_d, 0x52, d, d);
+  test_ld!(ld_d_e, 0x53, d, e);
+  test_ld!(ld_d_h, 0x54, d, h);
+  test_ld!(ld_d_l, 0x55, d, l);
+  test_ld!(ld_d_hl,0x56, d, (hl));
+  test_ld!(ld_d_a, 0x57, d, a);
+
+  test_ld!(ld_e_b, 0x58, e, b);
+  test_ld!(ld_e_c, 0x59, e, c);
+  test_ld!(ld_e_d, 0x5A, e, d);
+  test_ld!(ld_e_e, 0x5B, e, e);
+  test_ld!(ld_e_h, 0x5C, e, h);
+  test_ld!(ld_e_l, 0x5D, e, l);
+  test_ld!(ld_e_hl,0x5E, e, (hl));
+  test_ld!(ld_e_a, 0x5F, e, a);
+
+  test_ld!(ld_h_b, 0x60, h, b);
+  test_ld!(ld_h_c, 0x61, h, c);
+  test_ld!(ld_h_d, 0x62, h, d);
+  test_ld!(ld_h_e, 0x63, h, e);
+  test_ld!(ld_h_h, 0x64, h, h);
+  test_ld!(ld_h_l, 0x65, h, l);
+  test_ld!(ld_h_hl,0x66, h, (hl));
+  test_ld!(ld_h_a, 0x67, h, a);
+
+  test_ld!(ld_l_b, 0x68, l, b);
+  test_ld!(ld_l_c, 0x69, l, c);
+  test_ld!(ld_l_d, 0x6A, l, d);
+  test_ld!(ld_l_e, 0x6B, l, e);
+  test_ld!(ld_l_h, 0x6C, l, h);
+  test_ld!(ld_l_l, 0x6D, l, l);
+  test_ld!(ld_l_hl,0x6E, l, (hl));
+  test_ld!(ld_l_a, 0x6F, l, a);
+
+  test_ld!(ld_hl_b, 0x70, (hl), b);
+  test_ld!(ld_hl_c, 0x71, (hl), c);
+  test_ld!(ld_hl_d, 0x72, (hl), d);
+  test_ld!(ld_hl_e, 0x73, (hl), e);
+  test_ld!(ld_hl_h, 0x74, (hl), h);
+  test_ld!(ld_hl_l, 0x75, (hl), l);
+
+  test_ld!(ld_hl_a, 0x77, (hl), a);
+
+  test_ld!(ld_a_b, 0x78, a, b);
+  test_ld!(ld_a_c, 0x79, a, c);
+  test_ld!(ld_a_d, 0x7A, a, d);
+  test_ld!(ld_a_e, 0x7B, a, e);
+  test_ld!(ld_a_h, 0x7C, a, h);
+  test_ld!(ld_a_l, 0x7D, a, l);
+  test_ld!(ld_a_hl,0x7E, a, (hl));
+  test_ld!(ld_a_a, 0x7F, a, a);
 }
