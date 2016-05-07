@@ -1595,8 +1595,8 @@ mod tests {
         cpu.ram[1] = n;
         let cycles = cpu.step();
 
-        assert_eq!(n, cpu.ram[0xDEAD]);
-        assert_eq!(12, cycles);
+        expect_eq!(cpu.ram[0xDEAD], n);
+        expect_cycles!(cycles, 12);
       }
     };
 
@@ -1615,8 +1615,8 @@ mod tests {
         cpu.ram[0] = $opcode;
         let cycles = cpu.step();
 
-        assert_eq!(cpu.$r, cpu.ram[0xDEAD]);
-        assert_eq!(8, cycles);
+        expect_eq!(cpu.ram[0xDEAD], cpu.$r);
+        expect_cycles!(cycles, 8);
       }
     };
 
@@ -1635,8 +1635,8 @@ mod tests {
         cpu.ram[0] = $opcode;
         let cycles = cpu.step();
 
-        assert_eq!(cpu.ram[0xDEAD], cpu.$r);
-        assert_eq!(8, cycles);
+        expect_eq!(cpu.$r, cpu.ram[0xDEAD]);
+        expect_cycles!(cycles, 8);
       }
     };
 
@@ -1654,8 +1654,8 @@ mod tests {
         cpu.ram[1] = n;
         let cycles = cpu.step();
 
-        assert_eq!(n, cpu.$r);
-        assert_eq!(8, cycles);
+        expect_eq!(cpu.$r, n);
+        expect_cycles!(cycles, 8);
       }
     };
 
@@ -1672,8 +1672,8 @@ mod tests {
         cpu.ram[0] = $opcode;
         let cycles = cpu.step();
 
-        assert_eq!(cpu.$r1, cpu.$r2);
-        assert_eq!(4, cycles);
+        expect_eq!(cpu.$r2, cpu.$r1);
+        expect_cycles!(cycles, 4);
       }
     };
 
