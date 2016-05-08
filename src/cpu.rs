@@ -1620,6 +1620,37 @@ mod tests {
   // palatable.
   macro_rules! test_ld {
 
+    // LD (FF00+n),A
+    ($name: ident, $opcode: expr, (0xFF00 + n), a) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0xAD;
+        let cycles = cpu.step();
+
+        expect_cycles!(cycles, 12);
+      }
+    };
+
+    // LD (FF00+c),A
+    ($name: ident, $opcode: expr, (0xFF00 + c), a) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.c = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_cycles!(cycles, 8);
+      }
+    };
+
     // LD (hl),n
     ($name: ident, $opcode: expr, (hl), n) => {
       #[test]
@@ -1679,6 +1710,37 @@ mod tests {
         let cycles = cpu.step();
 
         expect_eq!(cpu.ram[0xDEAD], cpu.$r);
+        expect_cycles!(cycles, 8);
+      }
+    };
+
+    // LD A,(FF00+n)
+    ($name: ident, $opcode: expr, a, (0xFF00 + n)) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0xAD;
+        let cycles = cpu.step();
+
+        expect_cycles!(cycles, 12);
+      }
+    };
+
+    // LD A,(FF00+c)
+    ($name: ident, $opcode: expr, a, (0xFF00 + c)) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.c = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
         expect_cycles!(cycles, 8);
       }
     };
@@ -1759,6 +1821,100 @@ mod tests {
 
         expect_eq!(cpu.$r2, cpu.$r1);
         expect_cycles!(cycles, 4);
+      }
+    };
+  }
+
+  macro_rules! test_ldi {
+
+    // LDI (HL),A
+    ($name: ident, $opcode: expr, (h l), a) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xBA;
+        cpu.ram[0xDEAD] = 0;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.ram[0xDEAD], 0xBA);
+        expect_eq!(cpu.h, 0xDE);
+        expect_eq!(cpu.l, 0xAE);
+        expect_cycles!(cycles, 8);
+      }
+    };
+
+    // LDI A,(HL)
+    ($name: ident, $opcode: expr, a, (h l)) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0;
+        cpu.ram[0xDEAD] = 0xBA;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xBA);
+        expect_eq!(cpu.h, 0xDE);
+        expect_eq!(cpu.l, 0xAE);
+        expect_cycles!(cycles, 8);
+      }
+    };
+  }
+
+  macro_rules! test_ldd {
+
+    // LDD (HL),A
+    ($name: ident, $opcode: expr, (h l), a) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xBA;
+        cpu.ram[0xDEAD] = 0;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.ram[0xDEAD], 0xBA);
+        expect_eq!(cpu.h, 0xDE);
+        expect_eq!(cpu.l, 0xAC);
+        expect_cycles!(cycles, 8);
+      }
+    };
+
+    // LDD A,(HL)
+    ($name: ident, $opcode: expr, a, (h l)) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0;
+        cpu.ram[0xDEAD] = 0xBA;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xBA);
+        expect_eq!(cpu.h, 0xDE);
+        expect_eq!(cpu.l, 0xAC);
+        expect_cycles!(cycles, 8);
       }
     };
   }
@@ -2196,7 +2352,16 @@ mod tests {
   test_ld!(ld_de_a, 0x12, (d e), a);
   test_ld!(ld_nn_a, 0xEA, (n n), a);
 
-  // TODO: how to test io-port?
+  // XXX: these only test cycles for now.
+  test_ld!(ld_a_ff00n, 0xF0, a, (0xFF00 + n));
+  test_ld!(ld_ff00n_a, 0xE0, (0xFF00 + n), a);
+  test_ld!(ld_a_ff00c, 0xF2, a, (0xFF00 + c));
+  test_ld!(ld_ff00c_a, 0xE2, (0xFF00 + c), a);
+
+  test_ldi!(ldi_hl_a, 0x22, (h l), a);
+  test_ldi!(ldi_a_hl, 0x2A, a, (h l));
+  test_ldd!(ldd_hl_a, 0x32, (h l), a);
+  test_ldd!(ldd_a_hl, 0x3A, a, (h l));
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
