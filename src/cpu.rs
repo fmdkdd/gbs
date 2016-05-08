@@ -883,7 +883,7 @@ impl Cpu {
       //   z: set if $r is 0
       //   n: 0 or 1
       //   h: set if nibble overflow
-      //   c: ?
+      //   c: set if operation overflow/underflow
       // $v: value before operation
       // $r: value after operation
 
@@ -900,6 +900,27 @@ impl Cpu {
           | ((($v == 0) as u8) << 5)
           | N_FLAG
           | (self.f & C_FLAG);
+      });
+
+      // $r: result as u16
+      (z0hc, $r:expr) => ({
+        if ($r & 0x00FF) == 0 {
+          self.set_z();
+        }
+        else {
+          self.clear_z();
+        }
+
+        self.clear_n();
+
+        // TODO: half-carry flag
+
+        if ($r & 0xFF00) > 0 {
+          self.set_c();
+        }
+        else  {
+          self.clear_c();
+        }
       });
     }
 
