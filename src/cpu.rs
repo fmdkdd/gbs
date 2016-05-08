@@ -1641,15 +1641,37 @@ mod tests {
       }
     };
 
-    // LD (hl),r
-    ($name: ident, $opcode: expr, (hl), $r:ident) => {
+    // LD (nn),A
+    ($name:ident, $opcode:expr, (n n), $r:ident) => {
       #[test]
       fn $name() {
         let mut cpu = Cpu::new();
 
         cpu.$r = 0xBA;
-        cpu.h = 0xDE;
-        cpu.l = 0xAD;
+        cpu.ram[0xDEAD] = 0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0xAD;      // Little endian
+        cpu.ram[2] = 0xDE;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.ram[0xDEAD], cpu.$r);
+        expect_cycles!(cycles, 16);
+      }
+    };
+
+    // LD (hl),r
+    // LD (BC),A
+    // LD (DE),A
+    ($name:ident, $opcode:expr, ($rh:ident $rl:ident), $r:ident) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.$r = 0xBA;
+        cpu.$rh = 0xDE;
+        cpu.$rl = 0xAD;
 
         cpu.ram[0xDEAD] = 0;
         cpu.pc = 0;
@@ -1661,15 +1683,37 @@ mod tests {
       }
     };
 
-    // LD r,(hl)
-    ($name: ident, $opcode: expr, $r:ident, (hl)) => {
+    // LD A,(nn)
+    ($name: ident, $opcode: expr, $r:ident, (n n)) => {
       #[test]
       fn $name() {
         let mut cpu = Cpu::new();
 
         cpu.$r = 0;
-        cpu.h = 0xDE;
-        cpu.l = 0xAD;
+        cpu.ram[0xDEAD] = 0xBA;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0xAD;      // Little endian
+        cpu.ram[2] = 0xDE;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.$r, cpu.ram[0xDEAD]);
+        expect_cycles!(cycles, 16);
+      }
+    };
+
+    // LD r,(hl)
+    // LD A,(BC)
+    // LD A,(DE)
+    ($name: ident, $opcode: expr, $r:ident, ($rh:ident $rl:ident)) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.$r = 0;
+        cpu.$rh = 0xDE;
+        cpu.$rl = 0xAD;
 
         cpu.ram[0xDEAD] = 0xBA;
         cpu.pc = 0;
@@ -2062,42 +2106,13 @@ mod tests {
     assert_eq!(4, cycles);
   }
 
-  test_inc!(inc_b, 0x04, b);
-  test_inc!(inc_c, 0x0C, c);
-  test_inc!(inc_d, 0x14, d);
-  test_inc!(inc_e, 0x1C, e);
-  test_inc!(inc_h, 0x24, h);
-  test_inc!(inc_l, 0x2C, l);
-  test_inc!(inc_hl,0x34, hl);
-  test_inc!(inc_a, 0x3C, a);
-
-  test_inc!(inc_bc, 0x03, b c);
-  test_inc!(inc_de, 0x13, d e);
-  test_inc!(inc_h_l,0x23, h l);
-  test_inc!(inc_sp, 0x33, sp);
-
-  test_dec!(dec_b, 0x05, b);
-  test_dec!(dec_c, 0x0D, c);
-  test_dec!(dec_d, 0x15, d);
-  test_dec!(dec_e, 0x1D, e);
-  test_dec!(dec_h, 0x25, h);
-  test_dec!(dec_l, 0x2D, l);
-  test_dec!(dec_hl,0x35, hl);
-  test_dec!(dec_a, 0x3D, a);
-
-  test_dec!(dec_bc, 0x0B, b c);
-  test_dec!(dec_de, 0x1B, d e);
-  test_dec!(dec_h_l,0x2B, h l);
-  test_dec!(dec_sp, 0x3B, sp);
-
-  test_ld!(ld_b_n, 0x06, b, n);
-  test_ld!(ld_c_n, 0x0E, c, n);
-  test_ld!(ld_d_n, 0x16, d, n);
-  test_ld!(ld_e_n, 0x1E, e, n);
-  test_ld!(ld_h_n, 0x26, h, n);
-  test_ld!(ld_l_n, 0x2E, l, n);
-  test_ld!(ld_hl_n,0x36, (hl), n);
-  test_ld!(ld_a_n, 0x3E, a, n);
+  test_ld!(ld_a_b, 0x78, a, b);
+  test_ld!(ld_a_c, 0x79, a, c);
+  test_ld!(ld_a_d, 0x7A, a, d);
+  test_ld!(ld_a_e, 0x7B, a, e);
+  test_ld!(ld_a_h, 0x7C, a, h);
+  test_ld!(ld_a_l, 0x7D, a, l);
+  test_ld!(ld_a_a, 0x7F, a, a);
 
   test_ld!(ld_b_b, 0x40, b, b);
   test_ld!(ld_b_c, 0x41, b, c);
@@ -2105,7 +2120,6 @@ mod tests {
   test_ld!(ld_b_e, 0x43, b, e);
   test_ld!(ld_b_h, 0x44, b, h);
   test_ld!(ld_b_l, 0x45, b, l);
-  test_ld!(ld_b_hl,0x46, b, (hl));
   test_ld!(ld_b_a, 0x47, b, a);
 
   test_ld!(ld_c_b, 0x48, c, b);
@@ -2114,7 +2128,6 @@ mod tests {
   test_ld!(ld_c_e, 0x4B, c, e);
   test_ld!(ld_c_h, 0x4C, c, h);
   test_ld!(ld_c_l, 0x4D, c, l);
-  test_ld!(ld_c_hl,0x4E, c, (hl));
   test_ld!(ld_c_a, 0x4F, c, a);
 
   test_ld!(ld_d_b, 0x50, d, b);
@@ -2123,7 +2136,6 @@ mod tests {
   test_ld!(ld_d_e, 0x53, d, e);
   test_ld!(ld_d_h, 0x54, d, h);
   test_ld!(ld_d_l, 0x55, d, l);
-  test_ld!(ld_d_hl,0x56, d, (hl));
   test_ld!(ld_d_a, 0x57, d, a);
 
   test_ld!(ld_e_b, 0x58, e, b);
@@ -2132,7 +2144,6 @@ mod tests {
   test_ld!(ld_e_e, 0x5B, e, e);
   test_ld!(ld_e_h, 0x5C, e, h);
   test_ld!(ld_e_l, 0x5D, e, l);
-  test_ld!(ld_e_hl,0x5E, e, (hl));
   test_ld!(ld_e_a, 0x5F, e, a);
 
   test_ld!(ld_h_b, 0x60, h, b);
@@ -2141,7 +2152,6 @@ mod tests {
   test_ld!(ld_h_e, 0x63, h, e);
   test_ld!(ld_h_h, 0x64, h, h);
   test_ld!(ld_h_l, 0x65, h, l);
-  test_ld!(ld_h_hl,0x66, h, (hl));
   test_ld!(ld_h_a, 0x67, h, a);
 
   test_ld!(ld_l_b, 0x68, l, b);
@@ -2150,24 +2160,69 @@ mod tests {
   test_ld!(ld_l_e, 0x6B, l, e);
   test_ld!(ld_l_h, 0x6C, l, h);
   test_ld!(ld_l_l, 0x6D, l, l);
-  test_ld!(ld_l_hl,0x6E, l, (hl));
   test_ld!(ld_l_a, 0x6F, l, a);
 
-  test_ld!(ld_hl_b, 0x70, (hl), b);
-  test_ld!(ld_hl_c, 0x71, (hl), c);
-  test_ld!(ld_hl_d, 0x72, (hl), d);
-  test_ld!(ld_hl_e, 0x73, (hl), e);
-  test_ld!(ld_hl_h, 0x74, (hl), h);
-  test_ld!(ld_hl_l, 0x75, (hl), l);
+  test_ld!(ld_b_n, 0x06, b, n);
+  test_ld!(ld_c_n, 0x0E, c, n);
+  test_ld!(ld_d_n, 0x16, d, n);
+  test_ld!(ld_e_n, 0x1E, e, n);
+  test_ld!(ld_h_n, 0x26, h, n);
+  test_ld!(ld_l_n, 0x2E, l, n);
+  test_ld!(ld_a_n, 0x3E, a, n);
 
-  test_ld!(ld_hl_a, 0x77, (hl), a);
+  test_ld!(ld_b_hl,0x46, b, (h l));
+  test_ld!(ld_c_hl,0x4E, c, (h l));
+  test_ld!(ld_d_hl,0x56, d, (h l));
+  test_ld!(ld_e_hl,0x5E, e, (h l));
+  test_ld!(ld_h_hl,0x66, h, (h l));
+  test_ld!(ld_l_hl,0x6E, l, (h l));
+  test_ld!(ld_a_hl,0x7E, a, (h l));
 
-  test_ld!(ld_a_b, 0x78, a, b);
-  test_ld!(ld_a_c, 0x79, a, c);
-  test_ld!(ld_a_d, 0x7A, a, d);
-  test_ld!(ld_a_e, 0x7B, a, e);
-  test_ld!(ld_a_h, 0x7C, a, h);
-  test_ld!(ld_a_l, 0x7D, a, l);
-  test_ld!(ld_a_hl,0x7E, a, (hl));
-  test_ld!(ld_a_a, 0x7F, a, a);
+  test_ld!(ld_hl_b, 0x70, (h l), b);
+  test_ld!(ld_hl_c, 0x71, (h l), c);
+  test_ld!(ld_hl_d, 0x72, (h l), d);
+  test_ld!(ld_hl_e, 0x73, (h l), e);
+  test_ld!(ld_hl_h, 0x74, (h l), h);
+  test_ld!(ld_hl_l, 0x75, (h l), l);
+  test_ld!(ld_hl_a, 0x77, (h l), a);
+
+  test_ld!(ld_hl_n,0x36, (hl), n);
+
+  test_ld!(ld_a_bc, 0x0A, a, (b c));
+  test_ld!(ld_a_de, 0x1A, a, (d e));
+  test_ld!(ld_a_nn, 0xFA, a, (n n));
+
+  test_ld!(ld_bc_a, 0x02, (b c), a);
+  test_ld!(ld_de_a, 0x12, (d e), a);
+  test_ld!(ld_nn_a, 0xEA, (n n), a);
+
+  // TODO: how to test io-port?
+
+  test_inc!(inc_b, 0x04, b);
+  test_inc!(inc_c, 0x0C, c);
+  test_inc!(inc_d, 0x14, d);
+  test_inc!(inc_e, 0x1C, e);
+  test_inc!(inc_h, 0x24, h);
+  test_inc!(inc_l, 0x2C, l);
+  test_inc!(inc_hl_ind,0x34, hl);
+  test_inc!(inc_a, 0x3C, a);
+
+  test_inc!(inc_bc, 0x03, b c);
+  test_inc!(inc_de, 0x13, d e);
+  test_inc!(inc_hl,0x23, h l);
+  test_inc!(inc_sp, 0x33, sp);
+
+  test_dec!(dec_b, 0x05, b);
+  test_dec!(dec_c, 0x0D, c);
+  test_dec!(dec_d, 0x15, d);
+  test_dec!(dec_e, 0x1D, e);
+  test_dec!(dec_h, 0x25, h);
+  test_dec!(dec_l, 0x2D, l);
+  test_dec!(dec_hl_ind,0x35, hl);
+  test_dec!(dec_a, 0x3D, a);
+
+  test_dec!(dec_bc, 0x0B, b c);
+  test_dec!(dec_de, 0x1B, d e);
+  test_dec!(dec_hl,0x2B, h l);
+  test_dec!(dec_sp, 0x3B, sp);
 }
