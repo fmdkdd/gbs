@@ -2,7 +2,7 @@ const RAM_LENGTH : usize = 0x10000;
 
 const Z_FLAG : u8 = 0x80;
 const N_FLAG : u8 = 0x40;
-// const H_FLAG : u8 = 0x20;
+const H_FLAG : u8 = 0x20;
 const C_FLAG : u8 = 0x10;
 
 pub struct Cpu {
@@ -65,6 +65,19 @@ impl Cpu {
       ro += 1;
     }
   }
+
+  fn set_z(&mut self) { self.f |= Z_FLAG; }
+  fn set_n(&mut self) { self.f |= N_FLAG; }
+  fn set_h(&mut self) { self.f |= H_FLAG; }
+  fn set_c(&mut self) { self.f |= C_FLAG; }
+  fn clear_z(&mut self) { self.f &= !Z_FLAG; }
+  fn clear_n(&mut self) { self.f &= !N_FLAG; }
+  fn clear_h(&mut self) { self.f &= !H_FLAG; }
+  fn clear_c(&mut self) { self.f &= !C_FLAG; }
+  fn z(&self) -> bool { self.f & Z_FLAG == Z_FLAG }
+  fn n(&self) -> bool { self.f & N_FLAG == N_FLAG }
+  fn h(&self) -> bool { self.f & H_FLAG == H_FLAG }
+  fn c(&self) -> bool { self.f & C_FLAG == C_FLAG }
 
   fn read_pc(&mut self) -> u8 {
     let ret = self.read(self.pc);
