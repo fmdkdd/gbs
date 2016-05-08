@@ -1571,8 +1571,49 @@ impl Cpu {
 mod tests {
   use super::*;
 
+  // Some helpers around `assert` with better debugging messages.
+  macro_rules! expect_eq {
+    ($l: expr, $r: expr) => ({
+      let l = $l;
+      let r = $r;
+      assert!(r == l, "expected {:x}, got {:x}", r, l);
+    });
+  }
+
+  macro_rules! expect_cycles {
+    ($cycles: expr, $n: expr) => ({
+      assert!($cycles == $n, "expected {} cycles, got {}", $n, $cycles);
+    });
+  }
+
+  macro_rules! expect_flag {
+    (z, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected zero flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+
+    (n, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected add/sub flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+
+    (h, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected half carry flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+
+    (c, $f: expr, $e: expr) => ({
+      let e = if $e == 1 { true } else { false };
+      assert!($f == e, "expected carry flag to be {}",
+              if e { "set" } else { "clear" });
+    });
+  }
+
   // Use macros to generate the test functions, since this is a lot of repetitive
-  // code, and we want to test all opcodes.
+  // code, and we want to test all the opcodes, and all the registers.
   //
   // Have to pass the name of each generated function, since we cannot generate
   // identifiers using macros (one day, maybe).  Still repetitive, but more
@@ -1676,47 +1717,6 @@ mod tests {
         expect_cycles!(cycles, 4);
       }
     };
-
-  }
-
-  macro_rules! expect_eq {
-    ($l: expr, $r: expr) => ({
-      let l = $l;
-      let r = $r;
-      assert!(r == l, "expected {:x}, got {:x}", r, l);
-    });
-  }
-
-  macro_rules! expect_cycles {
-    ($cycles: expr, $n: expr) => ({
-      assert!($cycles == $n, "expected {} cycles, got {}", $n, $cycles);
-    });
-  }
-
-  macro_rules! expect_flag {
-    (z, $f: expr, $e: expr) => ({
-      let e = if $e == 1 { true } else { false };
-      assert!($f == e, "expected zero flag to be {}",
-              if e { "set" } else { "clear" });
-    });
-
-    (n, $f: expr, $e: expr) => ({
-      let e = if $e == 1 { true } else { false };
-      assert!($f == e, "expected add/sub flag to be {}",
-              if e { "set" } else { "clear" });
-    });
-
-    (h, $f: expr, $e: expr) => ({
-      let e = if $e == 1 { true } else { false };
-      assert!($f == e, "expected half carry flag to be {}",
-              if e { "set" } else { "clear" });
-    });
-
-    (c, $f: expr, $e: expr) => ({
-      let e = if $e == 1 { true } else { false };
-      assert!($f == e, "expected carry flag to be {}",
-              if e { "set" } else { "clear" });
-    });
   }
 
   macro_rules! test_inc {
@@ -2050,6 +2050,7 @@ mod tests {
       }
     };
   }
+
   #[test]
   fn nop() {
     let mut cpu = Cpu::new();
