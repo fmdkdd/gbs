@@ -2041,6 +2041,56 @@ mod tests {
     };
   }
 
+  macro_rules! test_add {
+
+    // ADD A,r
+    ($name:ident, $opcode:expr, $r:ident) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn add() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 1;
+          cpu.$r = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 2);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 0);
+          // expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x80;
+          cpu.$r = 0x80;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 0);
+          // expect_flag!(h, cpu.h(), 1);
+          expect_flag!(c, cpu.c(), 1);
+        }
+      }
+    };
+
+  }
+
   macro_rules! test_inc {
     // INC (hl)
     ($name: ident, $opcode: expr, hl) => {
@@ -2501,6 +2551,14 @@ mod tests {
   test_pop!(pop_de, 0xD1, [d e]);
   test_pop!(pop_hl, 0xE1, [h l]);
   test_pop!(pop_af, 0xF1, [a f]);
+
+  test_add!(add_a_b, 0x80, b);
+  test_add!(add_a_c, 0x81, c);
+  test_add!(add_a_d, 0x82, d);
+  test_add!(add_a_e, 0x83, e);
+  test_add!(add_a_h, 0x84, h);
+  test_add!(add_a_l, 0x85, l);
+  test_add!(add_a_a, 0x87, a);
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
