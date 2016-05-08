@@ -1720,6 +1720,88 @@ mod tests {
   }
 
   macro_rules! test_inc {
+    // INC (hl)
+    ($name: ident, $opcode: expr, hl) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.ram[0xDEAD] = 0;
+          cpu.h = 0xDE;
+          cpu.l = 0xAD;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.ram[0xDEAD], 1);
+          expect_cycles!(cycles, 12);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.ram[0xDEAD] = 0xFF;
+          cpu.h = 0xDE;
+          cpu.l = 0xAD;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.ram[0xDEAD], 0);
+          expect_cycles!(cycles, 12);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 1);
+        }
+      }
+    };
+
+    // INC sp
+    ($name: ident, $opcode: expr, sp) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.sp = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.sp, 1);
+          expect_cycles!(cycles, 8);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.sp = 0xFFFF;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.sp, 0);
+          expect_cycles!(cycles, 8);
+        }
+      }
+    };
+
     // INC r
     ($name: ident, $opcode: expr, $r: ident) => {
       #[cfg(test)]
@@ -1761,8 +1843,213 @@ mod tests {
         }
       }
     };
+
+    // INC rr
+    ($name: ident, $opcode: expr, $rh: ident $rl: ident) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.$rh = 0;
+          cpu.$rl = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$rh, 0);
+          expect_eq!(cpu.$rl, 1);
+          expect_cycles!(cycles, 8);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.$rh = 0xFF;
+          cpu.$rl = 0xFF;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$rh, 0);
+          expect_eq!(cpu.$rl, 0);
+          expect_cycles!(cycles, 8);
+        }
+      }
+    };
   }
 
+  macro_rules! test_dec {
+    // DEC (hl)
+    ($name: ident, $opcode: expr, hl) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.ram[0xDEAD] = 1;
+          cpu.h = 0xDE;
+          cpu.l = 0xAD;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.ram[0xDEAD], 0);
+          expect_cycles!(cycles, 12);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.ram[0xDEAD] = 0;
+          cpu.h = 0xDE;
+          cpu.l = 0xAD;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.ram[0xDEAD], 0xFF);
+          expect_cycles!(cycles, 12);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 1);
+        }
+      }
+    };
+
+    // DEC sp
+    ($name: ident, $opcode: expr, sp) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.sp = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.sp, 0);
+          expect_cycles!(cycles, 8);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.sp = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.sp, 0xFFFF);
+          expect_cycles!(cycles, 8);
+        }
+      }
+    };
+
+    // DEC r
+    ($name: ident, $opcode: expr, $r: ident) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.$r = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$r, 0);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.$r = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$r, 0xFF);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 1);
+        }
+      }
+    };
+
+    // DEC rr
+    ($name: ident, $opcode: expr, $rh: ident $rl: ident) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.$rh = 0;
+          cpu.$rl = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$rh, 0);
+          expect_eq!(cpu.$rl, 0);
+          expect_cycles!(cycles, 8);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.$rh = 0;
+          cpu.$rl = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$rh, 0xFF);
+          expect_eq!(cpu.$rl, 0xFF);
+          expect_cycles!(cycles, 8);
+        }
+      }
+    };
+  }
   #[test]
   fn nop() {
     let mut cpu = Cpu::new();
@@ -1780,8 +2067,27 @@ mod tests {
   test_inc!(inc_e, 0x1C, e);
   test_inc!(inc_h, 0x24, h);
   test_inc!(inc_l, 0x2C, l);
-  // test_inc!(inc_hl,0x34, hl);
+  test_inc!(inc_hl,0x34, hl);
   test_inc!(inc_a, 0x3C, a);
+
+  test_inc!(inc_bc, 0x03, b c);
+  test_inc!(inc_de, 0x13, d e);
+  test_inc!(inc_h_l,0x23, h l);
+  test_inc!(inc_sp, 0x33, sp);
+
+  test_dec!(dec_b, 0x05, b);
+  test_dec!(dec_c, 0x0D, c);
+  test_dec!(dec_d, 0x15, d);
+  test_dec!(dec_e, 0x1D, e);
+  test_dec!(dec_h, 0x25, h);
+  test_dec!(dec_l, 0x2D, l);
+  test_dec!(dec_hl,0x35, hl);
+  test_dec!(dec_a, 0x3D, a);
+
+  test_dec!(dec_bc, 0x0B, b c);
+  test_dec!(dec_de, 0x1B, d e);
+  test_dec!(dec_h_l,0x2B, h l);
+  test_dec!(dec_sp, 0x3B, sp);
 
   test_ld!(ld_b_n, 0x06, b, n);
   test_ld!(ld_c_n, 0x0E, c, n);
