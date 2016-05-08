@@ -124,7 +124,7 @@ impl Cpu {
         let addr = 0xFF00 | (self.c as u16);
         let v = self.a;
         self.write(addr, v);
-        cycles += 12;
+        cycles += 8;
       });
 
       // LD (nn),A
