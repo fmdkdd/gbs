@@ -1714,6 +1714,65 @@ mod tests {
       }
     };
 
+    // LD rr,nn
+    ($name: ident, $opcode: expr, [$rh:ident $rl:ident], nn) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.$rh = 0;
+        cpu.$rl = 0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0xAD;      // Little endian
+        cpu.ram[2] = 0xDE;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.$rh, 0xDE);
+        expect_eq!(cpu.$rl, 0xAD);
+        expect_cycles!(cycles, 12);
+      }
+    };
+
+    // LD sp,nn
+    ($name: ident, $opcode: expr, sp, nn) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.sp = 0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0xAD;      // Little endian
+        cpu.ram[2] = 0xDE;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.sp, 0xDEAD);
+        expect_cycles!(cycles, 12);
+      }
+    };
+
+    // LD sp,hl
+    ($name: ident, $opcode: expr, sp, hl) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.sp = 0;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.sp, 0xDEAD);
+        expect_cycles!(cycles, 8);
+      }
+    };
+
     // LD A,(FF00+n)
     ($name: ident, $opcode: expr, a, (0xFF00 + n)) => {
       #[test]
@@ -1915,6 +1974,54 @@ mod tests {
         expect_eq!(cpu.h, 0xDE);
         expect_eq!(cpu.l, 0xAC);
         expect_cycles!(cycles, 8);
+      }
+    };
+  }
+
+  macro_rules! test_push {
+    ($name:ident, $opcode:expr, [$rh:ident $rl:ident]) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.sp = 0xFFFE;
+        cpu.ram[0xFFFC] = 0;
+        cpu.ram[0xFFFD] = 0;
+        cpu.$rh = 0xDE;
+        cpu.$rl = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.sp, 0xFFFC);
+        expect_eq!(cpu.ram[0xFFFC], 0xAD);
+        expect_eq!(cpu.ram[0xFFFD], 0xDE);
+        expect_cycles!(cycles, 16);
+      }
+    };
+  }
+
+  macro_rules! test_pop {
+    ($name:ident, $opcode:expr, [$rh:ident $rl:ident]) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.sp = 0xFFFC;
+        cpu.ram[0xFFFC] = 0xAD;
+        cpu.ram[0xFFFD] = 0xDE;
+        cpu.$rh = 0;
+        cpu.$rl = 0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.sp, 0xFFFE);
+        expect_eq!(cpu.$rh, 0xDE);
+        expect_eq!(cpu.$rl, 0xAD);
+        expect_cycles!(cycles, 12);
       }
     };
   }
@@ -2362,6 +2469,23 @@ mod tests {
   test_ldi!(ldi_a_hl, 0x2A, a, (h l));
   test_ldd!(ldd_hl_a, 0x32, (h l), a);
   test_ldd!(ldd_a_hl, 0x3A, a, (h l));
+
+  test_ld!(ld_bc_nn, 0x01, [b c], nn);
+  test_ld!(ld_de_nn, 0x11, [d e], nn);
+  test_ld!(ld_hl_nn, 0x21, [h l], nn);
+  test_ld!(ld_sp_nn, 0x31, sp, nn);
+
+  test_ld!(ld_sp_hl, 0xF9, sp, hl);
+
+  test_push!(push_bc, 0xC5, [b c]);
+  test_push!(push_de, 0xD5, [d e]);
+  test_push!(push_hl, 0xE5, [h l]);
+  test_push!(push_af, 0xF5, [a f]);
+
+  test_pop!(pop_bc, 0xC1, [b c]);
+  test_pop!(pop_de, 0xD1, [d e]);
+  test_pop!(pop_hl, 0xE1, [h l]);
+  test_pop!(pop_af, 0xF1, [a f]);
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
