@@ -1683,7 +1683,7 @@ mod tests {
     ($l: expr, $r: expr) => ({
       let l = $l;
       let r = $r;
-      assert!(r == l, "expected {}, got {}", r, l);
+      assert!(r == l, "expected {:x}, got {:x}", r, l);
     });
   }
 
