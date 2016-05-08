@@ -410,9 +410,11 @@ impl Cpu {
 
       // ADD A,r
       ($r:ident) => ({
-        let r = self.a.wrapping_add(self.$r);
-        // TODO: flags
-        self.a = r;
+        let mut a = self.a as u16;
+        let r = self.$r as u16;
+        a += r;
+        flags!(z0hc, a);
+        self.a = a as u8;
         cycles += 4;
       });
 
