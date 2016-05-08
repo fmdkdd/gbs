@@ -316,7 +316,7 @@ impl Cpu {
 
       // INC sp
       (sp) => ({
-        self.sp += 1;           // TODO: should this wrap?
+        self.sp = self.sp.wrapping_add(1);
         cycles += 8;
       });
 
@@ -331,7 +331,7 @@ impl Cpu {
       // INC rr
       ($rh:ident $rl:ident) => ({
         let mut rr = to_u16!(self.$rh, self.$rl);
-        rr += 1;                // TODO: should this wrap?
+        rr = rr.wrapping_add(1);
         let (h, l) = from_u16!(rr);
         self.$rh = h;
         self.$rl = l;
@@ -352,8 +352,8 @@ impl Cpu {
 
       // DEC sp
       (sp) => ({
-        self.sp -= 1;           // TODO: should this wrap?
-        cycles += 4;
+        self.sp = self.sp.wrapping_sub(1);
+        cycles += 8;
       });
 
       // DEC r
@@ -367,11 +367,11 @@ impl Cpu {
       // DEC rr
       ($rh:ident $rl:ident) => ({
         let mut rr = to_u16!(self.$rh, self.$rl);
-        rr -= 1;                // TODO: should this wrap?
+        rr = rr.wrapping_sub(1);
         let (h, l) = from_u16!(rr);
         self.$rh = h;
         self.$rl = l;
-        cycles += 4;
+        cycles += 8;
       });
     }
 
