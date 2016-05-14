@@ -411,9 +411,9 @@ impl Cpu {
       // ADD A,r
       ($r:ident) => ({
         let mut a = self.a as u16;
-        let r = self.$r as u16;
-        a += r;
-        flags!(z0hc, a);
+        let r = self.$r;
+        a += r as u16;
+        flags!(z0hc, a, self.a, r);
         self.a = a as u8;
         cycles += 4;
       });
@@ -903,7 +903,8 @@ impl Cpu {
       });
 
       // $r: result as u16
-      (z0hc, $r:expr) => ({
+      // $a, $b: operands as u8
+      (z0hc, $r:expr, $a:expr, $b:expr) => ({
         if ($r & 0x00FF) == 0 {
           self.set_z();
         }
@@ -913,7 +914,12 @@ impl Cpu {
 
         self.clear_n();
 
-        // TODO: half-carry flag
+        if ((($a & 0xF) + ($b & 0xF)) & 0x10) > 0 {
+          self.set_h();
+        }
+        else {
+          self.clear_h();
+        }
 
         if ($r & 0xFF00) > 0 {
           self.set_c();
