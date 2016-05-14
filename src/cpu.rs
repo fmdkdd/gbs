@@ -388,28 +388,9 @@ impl Cpu {
       });
     }
 
-    macro_rules! add {
-      // ADD A,(HL)
-      ((h l)) => ({
-        let addr = to_u16!(self.h, self.l);
-        let v = self.read(addr);
-
-        let mut r = self.a as u16;
-        r += v as u16;
-
-        let mut rh = self.a & 0xF;
-        rh += v & 0xF;
-
-        flags!(z0hc, r, rh);
-
-        self.a = r as u8;
-        cycles += 8;
-      });
-
-      // ADD A,n
-      (n) => ({
-        let n = self.read_pc();
-
+    macro_rules! add1 {
+      ($n:expr) => ({
+        let n = $n;
         let mut r = self.a as u16;
         r += n as u16;
 
@@ -419,20 +400,26 @@ impl Cpu {
         flags!(z0hc, r, rh);
 
         self.a = r as u8;
+      });
+    }
+
+    macro_rules! add {
+      // ADD A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        add1!(self.read(addr));
+        cycles += 8;
+      });
+
+      // ADD A,n
+      (n) => ({
+        add1!(self.read_pc());
         cycles += 8;
       });
 
       // ADD A,r
       ($r:ident) => ({
-        let mut r = self.a as u16;
-        r += self.$r as u16;
-
-        let mut rh = self.a & 0xF;
-        rh += self.$r & 0xF;
-
-        flags!(z0hc, r, rh);
-
-        self.a = r as u8;
+        add1!(self.$r);
         cycles += 4;
       });
 
@@ -445,30 +432,9 @@ impl Cpu {
       })
     }
 
-    macro_rules! adc {
-      // ADC A,(HL)
-      ((h l)) => ({
-        let addr = to_u16!(self.h, self.l);
-        let v = self.read(addr);
-
-        let mut r = self.a as u16;
-        r += if self.c() { 1 } else { 0 };
-        r += v as u16;
-
-        let mut rh = self.a & 0xF;
-        rh += if self.c() { 1 } else { 0 };
-        rh += v & 0xF;
-
-        flags!(z0hc, r, rh);
-
-        self.a = r as u8;
-        cycles += 8;
-      });
-
-      // ADC A,n
-      (n) => ({
-        let n = self.read_pc();
-
+    macro_rules! adc1 {
+      ($n:expr) => ({
+        let n = $n;
         let mut r = self.a as u16;
         r += if self.c() { 1 } else { 0 };
         r += n as u16;
@@ -480,21 +446,26 @@ impl Cpu {
         flags!(z0hc, r, rh);
 
         self.a = r as u8;
+      });
+    }
+
+    macro_rules! adc {
+      // ADC A,(HL)
+      ((h l)) => ({
+        let addr = to_u16!(self.h, self.l);
+        adc1!(self.read(addr));
+        cycles += 8;
+      });
+
+      // ADC A,n
+      (n) => ({
+        adc1!(self.read_pc());
         cycles += 8;
       });
 
       // ADC A,r
       ($r:ident) => ({
-        let mut r = self.a as u16;
-        r += if self.c() { 1 } else { 0 };
-        r += self.$r as u16;
-
-        let mut rh = self.a & 0xF;
-        rh += if self.c() { 1 } else { 0 };
-        rh += self.$r & 0xF;
-
-        flags!(z0hc, r, rh);
-        self.a = r as u8;
+        adc1!(self.$r);
         cycles += 4;
       });
     }
