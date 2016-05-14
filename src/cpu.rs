@@ -393,30 +393,46 @@ impl Cpu {
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
         let v = self.read(addr);
-        let mut a = self.a as u16;
-        a += v as u16;
-        flags!(z0hc, a, self.a, v);
-        self.a = a as u8;
+
+        let mut r = self.a as u16;
+        r += v as u16;
+
+        let mut rh = self.a & 0xF;
+        rh += v & 0xF;
+
+        flags!(z0hc, r, rh);
+
+        self.a = r as u8;
         cycles += 8;
       });
 
       // ADD A,n
       (n) => ({
-        let mut a = self.a as u16;
         let n = self.read_pc();
-        a += n as u16;
-        flags!(z0hc, a, self.a, n);
-        self.a = a as u8;
+
+        let mut r = self.a as u16;
+        r += n as u16;
+
+        let mut rh = self.a & 0xF;
+        rh += n & 0xF;
+
+        flags!(z0hc, r, rh);
+
+        self.a = r as u8;
         cycles += 8;
       });
 
       // ADD A,r
       ($r:ident) => ({
-        let mut a = self.a as u16;
-        let r = self.$r;
-        a += r as u16;
-        flags!(z0hc, a, self.a, r);
-        self.a = a as u8;
+        let mut r = self.a as u16;
+        r += self.$r as u16;
+
+        let mut rh = self.a & 0xF;
+        rh += self.$r & 0xF;
+
+        flags!(z0hc, r, rh);
+
+        self.a = r as u8;
         cycles += 4;
       });
 
@@ -905,8 +921,8 @@ impl Cpu {
       });
 
       // $r: result as u16
-      // $a, $b: operands as u8
-      (z0hc, $r:expr, $a:expr, $b:expr) => ({
+      // $rh: result of nibble operation as u8
+      (z0hc, $r:expr, $rh:expr) => ({
         if ($r & 0x00FF) == 0 {
           self.set_z();
         }
@@ -916,7 +932,7 @@ impl Cpu {
 
         self.clear_n();
 
-        if ((($a & 0xF) + ($b & 0xF)) & 0x10) > 0 {
+        if ($rh & 0xF0) > 0 {
           self.set_h();
         }
         else {
