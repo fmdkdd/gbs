@@ -393,18 +393,20 @@ impl Cpu {
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
         let v = self.read(addr);
-        let r = self.a.wrapping_add(v);
-        // TODO: flags
-        self.a = r;
+        let mut a = self.a as u16;
+        a += v as u16;
+        flags!(z0hc, a, self.a, v);
+        self.a = a as u8;
         cycles += 8;
       });
 
       // ADD A,n
       (n) => ({
+        let mut a = self.a as u16;
         let n = self.read_pc();
-        let r = self.a.wrapping_add(n);
-        // TODO: flags
-        self.a = r;
+        a += n as u16;
+        flags!(z0hc, a, self.a, n);
+        self.a = a as u8;
         cycles += 8;
       });
 
