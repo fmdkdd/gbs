@@ -2085,7 +2085,7 @@ mod tests {
           expect_cycles!(cycles, 4);
           expect_flag!(z, cpu.z(), 0);
           expect_flag!(n, cpu.n(), 0);
-          // expect_flag!(h, cpu.h(), 0);
+          expect_flag!(h, cpu.h(), 0);
           expect_flag!(c, cpu.c(), 0);
         }
 
@@ -2104,8 +2104,27 @@ mod tests {
           expect_cycles!(cycles, 4);
           expect_flag!(z, cpu.z(), 1);
           expect_flag!(n, cpu.n(), 0);
-          // expect_flag!(h, cpu.h(), 1);
+          expect_flag!(h, cpu.h(), 0);
           expect_flag!(c, cpu.c(), 1);
+        }
+
+        #[test]
+        fn half_carry() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x0F;
+          cpu.$r = 0x0F;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0x1E);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 1);
+          expect_flag!(c, cpu.c(), 0);
         }
       }
     };
