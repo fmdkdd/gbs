@@ -450,35 +450,51 @@ impl Cpu {
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
         let v = self.read(addr);
-        let mut r = self.a.wrapping_add(v);
-        if (self.f & C_FLAG) > 0 {
-          r = r.wrapping_add(1);
-        }
-        // TODO: flags
-        self.a = r;
+
+        let mut r = self.a as u16;
+        r += if self.c() { 1 } else { 0 };
+        r += v as u16;
+
+        let mut rh = self.a & 0xF;
+        rh += if self.c() { 1 } else { 0 };
+        rh += v & 0xF;
+
+        flags!(z0hc, r, rh);
+
+        self.a = r as u8;
         cycles += 8;
       });
 
       // ADC A,n
       (n) => ({
         let n = self.read_pc();
-        let mut r = self.a.wrapping_add(n);
-        if (self.f & C_FLAG) > 0 {
-          r = r.wrapping_add(1);
-        }
-        // TODO: flags
-        self.a = r;
+
+        let mut r = self.a as u16;
+        r += if self.c() { 1 } else { 0 };
+        r += n as u16;
+
+        let mut rh = self.a & 0xF;
+        rh += if self.c() { 1 } else { 0 };
+        rh += n & 0xF;
+
+        flags!(z0hc, r, rh);
+
+        self.a = r as u8;
         cycles += 8;
       });
 
       // ADC A,r
       ($r:ident) => ({
-        let mut r = self.a.wrapping_add(self.$r);
-        if (self.f & C_FLAG) > 0 {
-          r = r.wrapping_add(1);
-        }
-        // TODO: flags
-        self.a = r;
+        let mut r = self.a as u16;
+        r += if self.c() { 1 } else { 0 };
+        r += self.$r as u16;
+
+        let mut rh = self.a & 0xF;
+        rh += if self.c() { 1 } else { 0 };
+        rh += self.$r & 0xF;
+
+        flags!(z0hc, r, rh);
+        self.a = r as u8;
         cycles += 4;
       });
     }
