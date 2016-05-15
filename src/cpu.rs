@@ -3156,6 +3156,77 @@ mod tests {
     };
   }
 
+  macro_rules! test_or {
+
+    // OR A,(HL)
+    ($name:ident, $opcode:expr, hl) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xF0;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[0xDEAD] = 0x0F;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xFF);
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 0);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+
+    // OR A,n
+    ($name:ident, $opcode:expr, n) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0);
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 1);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 0);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+
+    // OR A,r
+    ($name:ident, $opcode:expr, $r:ident) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0x0F;
+        cpu.$r = 0x0F;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xF);
+        expect_cycles!(cycles, 4);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 0);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+  }
+
   macro_rules! test_inc {
     // INC (hl)
     ($name: ident, $opcode: expr, hl) => {
@@ -3688,6 +3759,18 @@ mod tests {
   test_xor!(xor_a_n, 0xEE, n);
 
   test_xor!(xor_a_hl, 0xAE, hl);
+
+  test_or!(or_a_b, 0xB0, b);
+  test_or!(or_a_c, 0xB1, c);
+  test_or!(or_a_d, 0xB2, d);
+  test_or!(or_a_e, 0xB3, e);
+  test_or!(or_a_h, 0xB4, h);
+  test_or!(or_a_l, 0xB5, l);
+  test_or!(or_a_a, 0xB7, a);
+
+  test_or!(or_a_n, 0xF6, n);
+
+  test_or!(or_a_hl, 0xB6, hl);
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
