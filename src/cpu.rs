@@ -470,31 +470,38 @@ impl Cpu {
       });
     }
 
+    macro_rules! sub1 {
+      ($n:expr) => ({
+        let n = $n;
+        let mut r = self.a as i16;
+        r -= n as i16;
+
+        let mut rh = (self.a & 0xF) as i8;
+        rh -= (n & 0xF) as i8;
+
+        flags!(z1hc, r, rh);
+
+        self.a = r as u8;
+      });
+    }
+
     macro_rules! sub {
       // SUB A,(HL)
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
-        let v = self.read(addr);
-        let r = self.a.wrapping_sub(v);
-        // TODO: flags
-        self.a = r;
+        sub1!(self.read(addr));
         cycles += 8;
       });
 
       // SUB A,n
       (n) => ({
-        let n = self.read_pc();
-        let r = self.a.wrapping_sub(n);
-        // TODO: flags
-        self.a = r;
+        sub1!(self.read_pc());
         cycles += 8;
       });
 
       // SUB A,r
       ($r:ident) => ({
-        let r = self.a.wrapping_sub(self.$r);
-        // TODO: flags
-        self.a = r;
+        sub1!(self.$r);
         cycles += 4;
       });
     }
@@ -927,6 +934,33 @@ impl Cpu {
         }
 
         if ($r & 0xFF00) > 0 {
+          self.set_c();
+        }
+        else  {
+          self.clear_c();
+        }
+      });
+
+      // $r: result as u16
+      // $rh: result of nibble operation as u8
+      (z1hc, $r:expr, $rh:expr) => ({
+        if ($r & 0x00FF) == 0 {
+          self.set_z();
+        }
+        else {
+          self.clear_z();
+        }
+
+        self.set_n();
+
+        if $rh < 0 {
+          self.set_h();
+        }
+        else {
+          self.clear_h();
+        }
+
+        if $r < 0 {
           self.set_c();
         }
         else  {
