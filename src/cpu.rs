@@ -2128,6 +2128,145 @@ mod tests {
 
   macro_rules! test_add {
 
+    // ADD HL,SP
+    ($name:ident, $opcode:expr, sp) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn add() {
+          let mut cpu = Cpu::new();
+
+          cpu.h = 2;
+          cpu.l = 1;
+          cpu.sp = 0x0201;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.h, 4);
+          expect_eq!(cpu.l, 2);
+          expect_cycles!(cycles, 8);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.h = 0xF0;
+          cpu.l = 0x00;
+          cpu.sp = 0xF000;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.h, 0xE0);
+          expect_eq!(cpu.l, 0x00);
+          expect_cycles!(cycles, 8);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 1);
+        }
+
+        #[test]
+        fn half_carry() {
+          let mut cpu = Cpu::new();
+
+          cpu.h = 0x0F;
+          cpu.l = 0x00;
+          cpu.sp = 0x0F00;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.h, 0x1E);
+          expect_eq!(cpu.l, 0x00);
+          expect_cycles!(cycles, 8);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 1);
+          expect_flag!(c, cpu.c(), 0);
+        }
+      }
+    };
+
+    // ADD HL,rr
+    ($name:ident, $opcode:expr, [$rh:ident $rl:ident]) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn add() {
+          let mut cpu = Cpu::new();
+
+          cpu.h = 2;
+          cpu.l = 1;
+          cpu.$rh = 2;
+          cpu.$rl = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.h, 4);
+          expect_eq!(cpu.l, 2);
+          expect_cycles!(cycles, 8);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.h = 0xF0;
+          cpu.l = 0x00;
+          cpu.$rh = 0xF0;
+          cpu.$rl = 0x00;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.h, 0xE0);
+          expect_eq!(cpu.l, 0x00);
+          expect_cycles!(cycles, 8);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 1);
+        }
+
+        #[test]
+        fn half_carry() {
+          let mut cpu = Cpu::new();
+
+          cpu.h = 0x0F;
+          cpu.l = 0x00;
+          cpu.$rh = 0x0F;
+          cpu.$rl = 0x00;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.h, 0x1E);
+          expect_eq!(cpu.l, 0x00);
+          expect_cycles!(cycles, 8);
+          expect_flag!(n, cpu.n(), 0);
+          expect_flag!(h, cpu.h(), 1);
+          expect_flag!(c, cpu.c(), 0);
+        }
+      }
+    };
+
     // ADD A,(hl)
     ($name:ident, $opcode:expr, hl) => {
       #[cfg(test)]
@@ -3866,11 +4005,6 @@ mod tests {
   test_inc!(inc_hl_ind,0x34, hl);
   test_inc!(inc_a, 0x3C, a);
 
-  test_inc!(inc_bc, 0x03, [b c]);
-  test_inc!(inc_de, 0x13, [d e]);
-  test_inc!(inc_hl, 0x23, [h l]);
-  test_inc!(inc_sp, 0x33, sp);
-
   test_dec!(dec_b, 0x05, b);
   test_dec!(dec_c, 0x0D, c);
   test_dec!(dec_d, 0x15, d);
@@ -3879,6 +4013,16 @@ mod tests {
   test_dec!(dec_l, 0x2D, l);
   test_dec!(dec_hl_ind,0x35, hl);
   test_dec!(dec_a, 0x3D, a);
+
+  test_add!(add_hl_bc, 0x09, [b c]);
+  test_add!(add_hl_de, 0x19, [d e]);
+  test_add!(add_hl_hl, 0x29, [h l]);
+  test_add!(add_hl_sp, 0x39, sp);
+
+  test_inc!(inc_bc, 0x03, [b c]);
+  test_inc!(inc_de, 0x13, [d e]);
+  test_inc!(inc_hl, 0x23, [h l]);
+  test_inc!(inc_sp, 0x33, sp);
 
   test_dec!(dec_bc, 0x0B, [b c]);
   test_dec!(dec_de, 0x1B, [d e]);
