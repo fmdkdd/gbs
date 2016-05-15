@@ -2998,6 +2998,77 @@ mod tests {
 
   }
 
+  macro_rules! test_and {
+
+    // AND A,(HL)
+    ($name:ident, $opcode:expr, hl) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xFF;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[0xDEAD] = 0xFF;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xFF);
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 1);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+
+    // AND A,n
+    ($name:ident, $opcode:expr, n) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xFF;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0xFF;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xFF);
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 1);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+
+    // AND A,r
+    ($name:ident, $opcode:expr, $r:ident) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xFF;
+        cpu.$r = 0xFF;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xFF);
+        expect_cycles!(cycles, 4);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 1);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+  }
+
   macro_rules! test_inc {
     // INC (hl)
     ($name: ident, $opcode: expr, hl) => {
@@ -3506,6 +3577,18 @@ mod tests {
   test_sbc!(sbc_a_n, 0xDE, n);
 
   test_sbc!(sbc_a_hl, 0x9E, hl);
+
+  test_and!(and_a_b, 0xA0, b);
+  test_and!(and_a_c, 0xA1, c);
+  test_and!(and_a_d, 0xA2, d);
+  test_and!(and_a_e, 0xA3, e);
+  test_and!(and_a_h, 0xA4, h);
+  test_and!(and_a_l, 0xA5, l);
+  test_and!(and_a_a, 0xA7, a);
+
+  test_and!(and_a_n, 0xE6, n);
+
+  test_and!(and_a_hl, 0xA6, hl);
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
