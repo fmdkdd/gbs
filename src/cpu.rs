@@ -423,6 +423,38 @@ impl Cpu {
         cycles += 4;
       });
 
+      // ADD HL,SP
+      (hl, sp) => ({
+        let mut r = to_u16!(self.h, self.l) as u32;
+        r += self.sp as u32;
+
+        let mut rh = self.h & 0xF;
+        rh += ((self.sp >> 8) & 0xF) as u8;
+
+        flags!(-0hc, r, rh);
+
+        let (h, l) = from_u16!(r as u16);
+        self.h = h;
+        self.l = l;
+        cycles += 8;
+      });
+
+      // ADD HL,rr
+      (hl, $rh:ident $rl:ident) => ({
+        let mut r = to_u16!(self.h, self.l) as u32;
+        r += to_u16!(self.$rh, self.$rl) as u32;
+
+        let mut rh = self.h & 0xF;
+        rh += self.$rh & 0xF;
+
+        flags!(-0hc, r, rh);
+
+        let (h, l) = from_u16!(r as u16);
+        self.h = h;
+        self.l = l;
+        cycles += 8;
+      });
+
       // ADD SP,dd
       (sp, dd) => ({
         let dd = self.read_pc() as i8;
@@ -986,6 +1018,27 @@ impl Cpu {
         self.clear_h();
         self.clear_c();
       });
+
+      // $r: u32
+      // $rh: u8
+      (-0hc, $r:expr, $rh:expr) => ({
+        self.clear_n();
+
+        if ($rh & 0xF0) > 0 {
+          self.set_h();
+        }
+        else {
+          self.clear_h();
+        }
+
+        if ($r & 0xFFFF0000) > 0 {
+          self.set_c();
+        }
+        else {
+          self.clear_c();
+        }
+
+      });
     }
 
     macro_rules! jp {
@@ -1470,6 +1523,11 @@ impl Cpu {
       // TODO: cpl
 
       // GMB 16bit arithmetic/logical
+
+      0x09 => add!(hl, b c),
+      0x19 => add!(hl, d e),
+      0x29 => add!(hl, h l),
+      0x39 => add!(hl, sp),
 
       // INC rr
       0x03 => inc!(b c),
