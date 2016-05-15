@@ -3299,6 +3299,46 @@ mod tests {
   }
 
   macro_rules! test_inc {
+    // INC rr
+    ($name: ident, $opcode: expr, [$rh: ident $rl: ident]) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn inc() {
+          let mut cpu = Cpu::new();
+
+          cpu.$rh = 0;
+          cpu.$rl = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$rh, 0);
+          expect_eq!(cpu.$rl, 1);
+          expect_cycles!(cycles, 8);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.$rh = 0xFF;
+          cpu.$rl = 0xFF;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$rh, 0);
+          expect_eq!(cpu.$rl, 0);
+          expect_cycles!(cycles, 8);
+        }
+      }
+    };
+
     // INC (hl)
     ($name: ident, $opcode: expr, hl) => {
       #[cfg(test)]
@@ -3423,8 +3463,11 @@ mod tests {
       }
     };
 
-    // INC rr
-    ($name: ident, $opcode: expr, $rh: ident $rl: ident) => {
+  }
+
+  macro_rules! test_dec {
+    // DEC rr
+    ($name: ident, $opcode: expr, [$rh: ident $rl: ident]) => {
       #[cfg(test)]
       mod $name {
         use super::super::*;
@@ -3434,23 +3477,7 @@ mod tests {
           let mut cpu = Cpu::new();
 
           cpu.$rh = 0;
-          cpu.$rl = 0;
-
-          cpu.pc = 0;
-          cpu.ram[0] = $opcode;
-          let cycles = cpu.step();
-
-          expect_eq!(cpu.$rh, 0);
-          expect_eq!(cpu.$rl, 1);
-          expect_cycles!(cycles, 8);
-        }
-
-        #[test]
-        fn wrap() {
-          let mut cpu = Cpu::new();
-
-          cpu.$rh = 0xFF;
-          cpu.$rl = 0xFF;
+          cpu.$rl = 1;
 
           cpu.pc = 0;
           cpu.ram[0] = $opcode;
@@ -3460,11 +3487,25 @@ mod tests {
           expect_eq!(cpu.$rl, 0);
           expect_cycles!(cycles, 8);
         }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.$rh = 0;
+          cpu.$rl = 0;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.$rh, 0xFF);
+          expect_eq!(cpu.$rl, 0xFF);
+          expect_cycles!(cycles, 8);
+        }
       }
     };
-  }
 
-  macro_rules! test_dec {
     // DEC (hl)
     ($name: ident, $opcode: expr, hl) => {
       #[cfg(test)]
@@ -3589,45 +3630,6 @@ mod tests {
       }
     };
 
-    // DEC rr
-    ($name: ident, $opcode: expr, $rh: ident $rl: ident) => {
-      #[cfg(test)]
-      mod $name {
-        use super::super::*;
-
-        #[test]
-        fn inc() {
-          let mut cpu = Cpu::new();
-
-          cpu.$rh = 0;
-          cpu.$rl = 1;
-
-          cpu.pc = 0;
-          cpu.ram[0] = $opcode;
-          let cycles = cpu.step();
-
-          expect_eq!(cpu.$rh, 0);
-          expect_eq!(cpu.$rl, 0);
-          expect_cycles!(cycles, 8);
-        }
-
-        #[test]
-        fn wrap() {
-          let mut cpu = Cpu::new();
-
-          cpu.$rh = 0;
-          cpu.$rl = 0;
-
-          cpu.pc = 0;
-          cpu.ram[0] = $opcode;
-          let cycles = cpu.step();
-
-          expect_eq!(cpu.$rh, 0xFF);
-          expect_eq!(cpu.$rl, 0xFF);
-          expect_cycles!(cycles, 8);
-        }
-      }
-    };
   }
 
   #[test]
@@ -3864,9 +3866,9 @@ mod tests {
   test_inc!(inc_hl_ind,0x34, hl);
   test_inc!(inc_a, 0x3C, a);
 
-  test_inc!(inc_bc, 0x03, b c);
-  test_inc!(inc_de, 0x13, d e);
-  test_inc!(inc_hl,0x23, h l);
+  test_inc!(inc_bc, 0x03, [b c]);
+  test_inc!(inc_de, 0x13, [d e]);
+  test_inc!(inc_hl, 0x23, [h l]);
   test_inc!(inc_sp, 0x33, sp);
 
   test_dec!(dec_b, 0x05, b);
@@ -3878,8 +3880,8 @@ mod tests {
   test_dec!(dec_hl_ind,0x35, hl);
   test_dec!(dec_a, 0x3D, a);
 
-  test_dec!(dec_bc, 0x0B, b c);
-  test_dec!(dec_de, 0x1B, d e);
-  test_dec!(dec_hl,0x2B, h l);
+  test_dec!(dec_bc, 0x0B, [b c]);
+  test_dec!(dec_de, 0x1B, [d e]);
+  test_dec!(dec_hl, 0x2B, [h l]);
   test_dec!(dec_sp, 0x3B, sp);
 }
