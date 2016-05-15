@@ -439,6 +439,14 @@ impl Cpu {
         cycles += 8;
       });
 
+      // ADD SP,dd
+      (sp, dd) => ({
+        let dd = self.read_pc() as i8;
+        self.sp = self.sp.wrapping_add(dd as u16);
+        // TODO: flags
+        cycles += 16;
+      });
+
       // ADD HL,rr
       (hl, $rh:ident $rl:ident) => ({
         let mut r = to_u16!(self.h, self.l) as u32;
@@ -455,13 +463,6 @@ impl Cpu {
         cycles += 8;
       });
 
-      // ADD SP,dd
-      (sp, dd) => ({
-        let dd = self.read_pc() as i8;
-        self.sp = self.sp.wrapping_add(dd as u16);
-        // TODO: flags
-        cycles += 16;
-      })
     }
 
     macro_rules! adc1 {
@@ -2186,7 +2187,74 @@ mod tests {
 
   macro_rules! test_add {
 
-    // ADD HL,SP
+    // // ADD SP,dd
+    // ($name:ident, $opcode:expr, dd) => {
+    //   #[cfg(test)]
+    //   mod $name {
+    //     use super::super::*;
+
+    //     #[test]
+    //     fn add() {
+    //       let mut cpu = Cpu::new();
+
+    //       cpu.sp = 0x0001;
+
+    //       cpu.pc = 0;
+    //       cpu.ram[0] = $opcode;
+    //       cpu.ram[1] = 0xFF;
+    //       let cycles = cpu.step();
+
+    //       expect_eq!(cpu.sp, 0x0402);
+    //       expect_cycles!(cycles, 16);
+    //       expect_flag!(z, cpu.n(), 0);
+    //       expect_flag!(n, cpu.n(), 0);
+    //       expect_flag!(h, cpu.h(), 0);
+    //       expect_flag!(c, cpu.c(), 0);
+    //     }
+
+    //     #[test]
+    //     fn wrap() {
+    //       let mut cpu = Cpu::new();
+
+    //       cpu.sp = 0xF000;
+    //       cpu.ram[1] = 0x00;
+    //       cpu.ram[2] = 0xF0;
+
+    //       cpu.pc = 0;
+    //       cpu.ram[0] = $opcode;
+    //       let cycles = cpu.step();
+
+    //       expect_eq!(cpu.sp, 0xE000);
+    //       expect_cycles!(cycles, 16);
+    //       expect_flag!(z, cpu.n(), 0);
+    //       expect_flag!(n, cpu.n(), 0);
+    //       expect_flag!(h, cpu.h(), 0);
+    //       expect_flag!(c, cpu.c(), 1);
+    //     }
+
+    //     #[test]
+    //     fn half_carry() {
+    //       let mut cpu = Cpu::new();
+
+    //       cpu.sp = 0x0F00;
+
+    //       cpu.pc = 0;
+    //       cpu.ram[0] = $opcode;
+    //       cpu.ram[1] = 0x00;
+    //       cpu.ram[2] = 0xF0;
+    //       let cycles = cpu.step();
+
+    //       expect_eq!(cpu.sp, 0x1E00);
+    //       expect_cycles!(cycles, 16);
+    //       expect_flag!(z, cpu.n(), 0);
+    //       expect_flag!(n, cpu.n(), 0);
+    //       expect_flag!(h, cpu.h(), 1);
+    //       expect_flag!(c, cpu.c(), 0);
+    //     }
+    //   }
+    // };
+
+    // ADD HL,sp
     ($name:ident, $opcode:expr, sp) => {
       #[cfg(test)]
       mod $name {
@@ -4076,6 +4144,8 @@ mod tests {
   test_add!(add_hl_de, 0x19, [d e]);
   test_add!(add_hl_hl, 0x29, [h l]);
   test_add!(add_hl_sp, 0x39, sp);
+
+  // test_add!(add_sp_dd, 0xE8, dd);
 
   test_inc!(inc_bc, 0x03, [b c]);
   test_inc!(inc_de, 0x13, [d e]);
