@@ -506,40 +506,40 @@ impl Cpu {
       });
     }
 
+    macro_rules! sbc1 {
+      ($n:expr) => ({
+        let n = $n;
+        let mut r = self.a as i16;
+        r -= if self.c() { 1 } else { 0 };
+        r -= n as i16;
+
+        let mut rh = (self.a & 0xF) as i8;
+        rh -= if self.c() { 1 } else { 0 };
+        rh -= (n & 0xF) as i8;
+
+        flags!(z1hc, r, rh);
+
+        self.a = r as u8;
+      });
+    }
+
     macro_rules! sbc {
       // SBC A,(HL)
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
-        let v = self.read(addr);
-        let mut r = self.a.wrapping_sub(v);
-        if (self.f & C_FLAG) > 0 {
-          r = r.wrapping_sub(1);
-        }
-        // TODO: flags
-        self.a = r;
+        sbc1!(self.read(addr));
         cycles += 8;
       });
 
       // SBC A,n
       (n) => ({
-        let n = self.read_pc();
-        let mut r = self.a.wrapping_sub(n);
-        if (self.f & C_FLAG) > 0 {
-          r = r.wrapping_sub(1);
-        }
-        // TODO: flags
-        self.a = r;
+        sbc1!(self.read_pc());
         cycles += 8;
       });
 
       // SBC A,r
       ($r:ident) => ({
-        let mut r = self.a.wrapping_sub(self.$r);
-        if (self.f & C_FLAG) > 0 {
-          r = r.wrapping_sub(1);
-        }
-        // TODO: flags
-        self.a = r;
+        sbc1!(self.$r);
         cycles += 4;
       });
     }
