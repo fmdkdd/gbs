@@ -572,27 +572,22 @@ impl Cpu {
       // XOR A,(HL)
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
-        let v = self.read(addr);
-        let r = self.a ^ v;
-        // TODO: flags
-        self.a = r;
+        self.a ^= self.read(addr);
+        flags!(z000, self.a);
         cycles += 8;
       });
 
       // XOR A,n
       (n) => ({
-        let n = self.read_pc();
-        let r = self.a ^ n;
-        // TODO: flags
-        self.a = r;
+        self.a ^= self.read_pc();
+        flags!(z000, self.a);
         cycles += 8;
       });
 
       // XOR A,r
       ($r:ident) => ({
-        let r = self.a ^ self.$r;
-        // TODO: flags
-        self.a = r;
+        self.a ^= self.$r;
+        flags!(z000, self.a);
         cycles += 4;
       });
     }
@@ -973,6 +968,19 @@ impl Cpu {
 
         self.clear_n();
         self.set_h();
+        self.clear_c();
+      });
+
+      (z000, $r:expr) => ({
+        if $r == 0 {
+          self.set_z();
+        }
+        else {
+          self.clear_z();
+        }
+
+        self.clear_n();
+        self.clear_h();
         self.clear_c();
       });
     }
