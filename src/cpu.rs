@@ -3077,6 +3077,77 @@ mod tests {
     };
   }
 
+  macro_rules! test_xor {
+
+    // XOR A,(HL)
+    ($name:ident, $opcode:expr, hl) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xF0;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[0xDEAD] = 0x0F;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xFF);
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 0);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+
+    // XOR A,n
+    ($name:ident, $opcode:expr, n) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xF0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0x0F;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0xFF);
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 0);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+
+    // XOR A,r
+    ($name:ident, $opcode:expr, $r:ident) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xFF;
+        cpu.$r = 0xFF;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_eq!(cpu.a, 0);
+        expect_cycles!(cycles, 4);
+        expect_flag!(z, cpu.z(), 1);
+        expect_flag!(n, cpu.n(), 0);
+        expect_flag!(h, cpu.h(), 0);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+  }
+
   macro_rules! test_inc {
     // INC (hl)
     ($name: ident, $opcode: expr, hl) => {
@@ -3597,6 +3668,18 @@ mod tests {
   test_and!(and_a_n, 0xE6, n);
 
   test_and!(and_a_hl, 0xA6, hl);
+
+  test_xor!(xor_a_b, 0xA8, b);
+  test_xor!(xor_a_c, 0xA9, c);
+  test_xor!(xor_a_d, 0xAA, d);
+  test_xor!(xor_a_e, 0xAB, e);
+  test_xor!(xor_a_h, 0xAC, h);
+  test_xor!(xor_a_l, 0xAD, l);
+  test_xor!(xor_a_a, 0xAF, a);
+
+  test_xor!(xor_a_n, 0xEE, n);
+
+  test_xor!(xor_a_hl, 0xAE, hl);
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
