@@ -2492,6 +2492,237 @@ mod tests {
 
   }
 
+  macro_rules! test_sub {
+
+    // SUB A,(hl)
+    ($name:ident, $opcode:expr, hl) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn add() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 1;
+          cpu.h = 0xDE;
+          cpu.l = 0xAD;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          cpu.ram[0xDEAD] = 1;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0);
+          expect_cycles!(cycles, 8);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x80;
+          cpu.h = 0xDE;
+          cpu.l = 0xAD;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          cpu.ram[0xDEAD] = 0x90;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0xF0);
+          expect_cycles!(cycles, 8);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 1);
+        }
+
+        #[test]
+        fn half_carry() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x20;
+          cpu.h = 0xDE;
+          cpu.l = 0xAD;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          cpu.ram[0xDEAD] = 0x1F;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0x01);
+          expect_cycles!(cycles, 8);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 1);
+          expect_flag!(c, cpu.c(), 0);
+        }
+      }
+    };
+
+    // SUB A,n
+    ($name:ident, $opcode:expr, n) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn add() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          cpu.ram[1] = 1;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0);
+          expect_cycles!(cycles, 8);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x80;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          cpu.ram[1] = 0x90;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0xF0);
+          expect_cycles!(cycles, 8);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 1);
+        }
+
+        #[test]
+        fn half_carry() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x20;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          cpu.ram[1] = 0x1F;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0x01);
+          expect_cycles!(cycles, 8);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 1);
+          expect_flag!(c, cpu.c(), 0);
+        }
+      }
+    };
+
+    // SUB A,A
+    ($name:ident, $opcode:expr, a) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn sub() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 0);
+        }
+      }
+    };
+
+    // SUB A,r
+    ($name:ident, $opcode:expr, $r:ident) => {
+      #[cfg(test)]
+      mod $name {
+        use super::super::*;
+
+        #[test]
+        fn sub() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 1;
+          cpu.$r = 1;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 1);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 0);
+        }
+
+        #[test]
+        fn wrap() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x80;
+          cpu.$r = 0x90;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0xF0);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 0);
+          expect_flag!(c, cpu.c(), 1);
+        }
+
+        #[test]
+        fn half_carry() {
+          let mut cpu = Cpu::new();
+
+          cpu.a = 0x20;
+          cpu.$r = 0x1F;
+
+          cpu.pc = 0;
+          cpu.ram[0] = $opcode;
+          let cycles = cpu.step();
+
+          expect_eq!(cpu.a, 0x01);
+          expect_cycles!(cycles, 4);
+          expect_flag!(z, cpu.z(), 0);
+          expect_flag!(n, cpu.n(), 1);
+          expect_flag!(h, cpu.h(), 1);
+          expect_flag!(c, cpu.c(), 0);
+        }
+      }
+    };
+
+  }
+
   macro_rules! test_inc {
     // INC (hl)
     ($name: ident, $opcode: expr, hl) => {
@@ -2976,6 +3207,18 @@ mod tests {
   test_adc!(adc_a_n, 0xCE, n);
 
   test_adc!(adc_a_hl, 0x8E, hl);
+
+  test_sub!(sub_a_b, 0x90, b);
+  test_sub!(sub_a_c, 0x91, c);
+  test_sub!(sub_a_d, 0x92, d);
+  test_sub!(sub_a_e, 0x93, e);
+  test_sub!(sub_a_h, 0x94, h);
+  test_sub!(sub_a_l, 0x95, l);
+  test_sub!(sub_a_a, 0x97, a);
+
+  test_sub!(sub_a_n, 0xD6, n);
+
+  test_sub!(sub_a_hl, 0x96, hl);
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
