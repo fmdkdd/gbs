@@ -596,27 +596,22 @@ impl Cpu {
       // OR A,(HL)
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
-        let v = self.read(addr);
-        let r = self.a | v;
-        // TODO: flags
-        self.a = r;
+        self.a |= self.read(addr);
+        flags!(z000, self.a);
         cycles += 8;
       });
 
       // OR A,n
       (n) => ({
-        let n = self.read_pc();
-        let r = self.a | n;
-        // TODO: flags
-        self.a = r;
+        self.a |= self.read_pc();
+        flags!(z000, self.a);
         cycles += 8;
       });
 
       // OR A,r
       ($r:ident) => ({
-        let r = self.a | self.$r;
-        // TODO: flags
-        self.a = r;
+        self.a |= self.$r;
+        flags!(z000, self.a);
         cycles += 4;
       });
     }
