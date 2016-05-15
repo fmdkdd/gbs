@@ -616,28 +616,36 @@ impl Cpu {
       });
     }
 
+    macro_rules! cp1 {
+      ($n:expr) => ({
+        let n = $n;
+        let mut r = self.a as i16;
+        r -= n as i16;
+
+        let mut rh = (self.a & 0xF) as i8;
+        rh -= (n & 0xF) as i8;
+
+        flags!(z1hc, r, rh);
+      });
+    }
+
     macro_rules! cp {
       // CP A,(HL)
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
-        let v = self.read(addr);
-        self.a.wrapping_sub(v);
-        // TODO: flags
+        cp1!(self.read(addr));
         cycles += 8;
       });
 
       // CP A,n
       (n) => ({
-        let n = self.read_pc();
-        self.a.wrapping_sub(n);
-        // TODO: flags
+        cp1!(self.read_pc());
         cycles += 8;
       });
 
       // CP A,r
       ($r:ident) => ({
-        self.a.wrapping_sub(self.$r);
-        // TODO: flags
+        cp1!(self.$r);
         cycles += 4;
       });
     }
