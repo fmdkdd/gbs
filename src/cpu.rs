@@ -3222,6 +3222,74 @@ mod tests {
     };
   }
 
+  macro_rules! test_cp {
+
+    // CP A,(HL)
+    ($name:ident, $opcode:expr, hl) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0xF0;
+        cpu.h = 0xDE;
+        cpu.l = 0xAD;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[0xDEAD] = 0x0F;
+        let cycles = cpu.step();
+
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 1);
+        expect_flag!(h, cpu.h(), 1);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+
+    // CP A,n
+    ($name:ident, $opcode:expr, n) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        cpu.ram[1] = 0x0F;
+        let cycles = cpu.step();
+
+        expect_cycles!(cycles, 8);
+        expect_flag!(z, cpu.z(), 0);
+        expect_flag!(n, cpu.n(), 1);
+        expect_flag!(h, cpu.h(), 1);
+        expect_flag!(c, cpu.c(), 1);
+      }
+    };
+
+    // CP A,r
+    ($name:ident, $opcode:expr, $r:ident) => {
+      #[test]
+      fn $name() {
+        let mut cpu = Cpu::new();
+
+        cpu.a = 0x0F;
+        cpu.$r = 0x0F;
+
+        cpu.pc = 0;
+        cpu.ram[0] = $opcode;
+        let cycles = cpu.step();
+
+        expect_cycles!(cycles, 4);
+        expect_flag!(z, cpu.z(), 1);
+        expect_flag!(n, cpu.n(), 1);
+        expect_flag!(h, cpu.h(), 0);
+        expect_flag!(c, cpu.c(), 0);
+      }
+    };
+  }
+
   macro_rules! test_inc {
     // INC (hl)
     ($name: ident, $opcode: expr, hl) => {
@@ -3766,6 +3834,18 @@ mod tests {
   test_or!(or_a_n, 0xF6, n);
 
   test_or!(or_a_hl, 0xB6, hl);
+
+  test_cp!(cp_a_b, 0xB8, b);
+  test_cp!(cp_a_c, 0xB9, c);
+  test_cp!(cp_a_d, 0xBA, d);
+  test_cp!(cp_a_e, 0xBB, e);
+  test_cp!(cp_a_h, 0xBC, h);
+  test_cp!(cp_a_l, 0xBD, l);
+  test_cp!(cp_a_a, 0xBF, a);
+
+  test_cp!(cp_a_n, 0xFE, n);
+
+  test_cp!(cp_a_hl, 0xBE, hl);
 
   test_inc!(inc_b, 0x04, b);
   test_inc!(inc_c, 0x0C, c);
