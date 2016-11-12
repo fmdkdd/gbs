@@ -3,7 +3,7 @@ use std::fs::File;
 use std::path::Path;
 use std::result;
 
-mod read_binary;
+pub mod read_binary;
 
 use gbs_parser::read_binary::ReadBinary;
 

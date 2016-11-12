@@ -50,6 +50,16 @@ impl Cpu {
 
   pub fn reset(&mut self) {
     // TODO
+    self.pc = 0x100;
+    self.a = 0x0;
+    self.b = 0x0;
+    self.c = 0x13;
+    self.d = 0x0;
+    self.e = 0xD8;
+    self.h = 0x01;
+    self.l = 0x4D;
+    self.f = 0x1;
+    self.sp = 0xFFFE;
   }
 
   pub fn load_rom(&mut self, rom: &Vec<u8>, offset: usize) {
@@ -81,7 +91,7 @@ impl Cpu {
 
   fn read_pc(&mut self) -> u8 {
     let ret = self.read(self.pc);
-    self.pc += 1;
+    self.pc = self.pc.wrapping_add(1);
     ret
   }
 
@@ -102,6 +112,10 @@ impl Cpu {
   }
 
   fn write(&mut self, addr: u16, x: u8) {
+    if addr == 0xFF01 {
+      println!("{}", x as char);
+    }
+
     self.ram[addr as usize] = x;
   }
 
@@ -146,6 +160,14 @@ impl Cpu {
         let v = self.a;
         self.write(addr, v);
         cycles += 16;
+      });
+
+      // LD (nn),SP
+      ((n n), sp) => ({
+        let addr = self.read_pc_16le();
+        let v = self.sp;
+        self.write_16le(addr, v);
+        cycles += 16; // XXX: not sure
       });
 
       // LD (HL),n
@@ -245,7 +267,7 @@ impl Cpu {
         let mut addr = to_u16!(self.h, self.l);
         let v = self.a;
         self.write(addr, v);
-        addr -= 1;              // TODO: should this wrap?
+        addr += addr.wrapping_sub(1);
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -256,7 +278,7 @@ impl Cpu {
       (a, (h l)) => ({
         let mut addr = to_u16!(self.h, self.l);
         self.a = self.read(addr);
-        addr -= 1;              // TODO: should this wrap?
+        addr = addr.wrapping_sub(1);
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -270,7 +292,7 @@ impl Cpu {
         let mut addr = to_u16!(self.h, self.l);
         let v = self.a;
         self.write(addr, v);
-        addr += 1;              // TODO: should this wrap?
+        addr = addr.wrapping_add(1);
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -281,7 +303,7 @@ impl Cpu {
       (a, (h l)) => ({
         let mut addr = to_u16!(self.h, self.l);
         self.a = self.read(addr);
-        addr += 1;              // TODO: should this wrap?
+        addr = addr.wrapping_add(1);
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
@@ -291,11 +313,11 @@ impl Cpu {
 
     macro_rules! push {
       ($rh:ident $rl:ident) => ({
-        self.sp -= 1;
+        self.sp = self.sp.wrapping_sub(1);
         let addr = self.sp;
         let v = self.$rh;
         self.write(addr, v);
-        self.sp -= 1;
+        self.sp = self.sp.wrapping_sub(1);
         let addr = self.sp;
         let v = self.$rl;
         self.write(addr, v);
@@ -306,9 +328,9 @@ impl Cpu {
     macro_rules! pop {
       ($rh:ident $rl:ident) => ({
         let l = self.read(self.sp);
-        self.sp += 1;
+        self.sp = self.sp.wrapping_add(1);
         let h = self.read(self.sp);
-        self.sp += 1;
+        self.sp = self.sp.wrapping_add(1);
         self.$rl = l;
         self.$rh = h;
         // TODO: flags?
@@ -1138,7 +1160,7 @@ impl Cpu {
     macro_rules! call1 {
       ($nn:expr) => ({
         // Push PC to stack
-        self.sp -= 2;
+        self.sp = self.sp.wrapping_sub(2);
         let sp = self.sp;
         let pc = self.pc;
         self.write_16le(sp, pc);
@@ -1193,14 +1215,14 @@ impl Cpu {
     macro_rules! ret {
       () => ({
         self.pc = self.read_16le(self.sp);
-        self.sp += 2;
+        self.sp = self.sp.wrapping_add(2);
         cycles += 16;
       });
 
       (nz) => ({
         if (self.f & Z_FLAG) == 0 {
           self.pc = self.read_16le(self.sp);
-          self.sp += 2;
+          self.sp = self.sp.wrapping_add(2);
           cycles += 12;
         }
         cycles += 8;
@@ -1209,7 +1231,7 @@ impl Cpu {
       (z) => ({
         if (self.f & Z_FLAG) > 0 {
           self.pc = self.read_16le(self.sp);
-          self.sp += 2;
+          self.sp = self.sp.wrapping_add(2);
           cycles += 12;
         }
         cycles += 8;
@@ -1218,7 +1240,7 @@ impl Cpu {
       (nc) => ({
         if (self.f & C_FLAG) == 0 {
           self.pc = self.read_16le(self.sp);
-          self.sp += 2;
+          self.sp = self.sp.wrapping_add(2);
           cycles += 12;
         }
         cycles += 8;
@@ -1227,7 +1249,7 @@ impl Cpu {
       (c) => ({
         if (self.f & C_FLAG) > 0 {
           self.pc = self.read_16le(self.sp);
-          self.sp += 2;
+          self.sp = self.sp.wrapping_add(2);
           cycles += 12;
         }
         cycles += 8;
@@ -1237,7 +1259,7 @@ impl Cpu {
     macro_rules! reti {
       () => ({
         self.pc = self.read_16le(self.sp);
-        self.sp += 2;
+        self.sp = self.sp.wrapping_add(2);
         self.interrupts_enabled = true;
         cycles += 16;
       });
@@ -1711,17 +1733,28 @@ impl Cpu {
       0xF7 => rst!(0x30),
       0xFF => rst!(0x38),
 
+      // Extra opcodes
+
+      0x08 => ld!((n n), sp),
+      0xE3 => nop!(),
+
       _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
     }
 
     cycles
   }
 
-  pub fn run(&mut self, cycles: u64) {
+  pub fn runFor(&mut self, cycles: u64) {
     let mut c : u64 = 0;
 
     while c < cycles {
       c += self.step() as u64;
+    }
+  }
+
+  pub fn run(&mut self) {
+    loop {
+      self.step();
     }
   }
 }
