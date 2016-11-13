@@ -1653,6 +1653,7 @@ impl Cpu {
       0x00 => nop!(),
       // TODO: halt
       // TODO: stop
+      0x10 => nop!(),
       0xF3 => di!(),
       0xFB => ei!(),
 
@@ -1707,6 +1708,8 @@ impl Cpu {
 
       0x08 => ld!((n n), sp),
       0xE3 => nop!(),
+      0xFC => nop!(),
+      0xFD => nop!(),
 
       _ => panic!(format!("Unknown opcode 0x{:x}", opcode))
     }
