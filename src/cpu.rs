@@ -212,7 +212,7 @@ impl Cpu {
         let addr = self.read_pc_16le();
         let v = self.sp;
         self.write_16le(addr, v);
-        cycles += 16; // XXX: not sure
+        cycles += 20;
       });
 
       // LD (HL),n
