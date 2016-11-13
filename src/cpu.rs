@@ -184,16 +184,15 @@ impl Cpu {
       // then discriminate on second.
 
       // LD (FF00+n),A
-      ((0xFF00 + n), a) => ({
-        let n = self.read_pc();
-        let addr = 0xFF00 | (n as u16);
+      ((FF00 + n), a) => ({
+        let addr = 0xFF00 | (self.read_pc() as u16);
         let v = self.a;
         self.write(addr, v);
         cycles += 12;
       });
 
       // LD (FF00+C),A
-      ((0xFF00 + c), a) => ({
+      ((FF00 + c), a) => ({
         let addr = 0xFF00 | (self.c as u16);
         let v = self.a;
         self.write(addr, v);
@@ -235,15 +234,14 @@ impl Cpu {
       });
 
       // LD A,(FF00+n)
-      (a, (0xFF00 + n)) => ({
-        let n = self.read_pc();
-        let addr = 0xFF00 | (n as u16);
+      (a, (FF00 + n)) => ({
+        let addr = 0xFF00 | (self.read_pc() as u16);
         self.a = self.read(addr);
         cycles += 12;
       });
 
       // LD A,(FF00+C)
-      (a, (0xFF00 + c)) => ({
+      (a, (FF00 + c)) => ({
         let addr = 0xFF00 | (self.c as u16);
         self.a = self.read(addr);
         cycles += 8;
@@ -1428,11 +1426,11 @@ impl Cpu {
       0x12 => ld!((d e), a),
       0xEA => ld!((n n), a),
 
-      0xF0 => ld!(a, (0xFF00 + n)),
-      0xE0 => ld!((0xFF00 + n), a),
+      0xF0 => ld!(a, (FF00 + n)),
+      0xE0 => ld!((FF00 + n), a),
 
-      0xF2 => ld!(a, (0xFF00 + c)),
-      0xE2 => ld!((0xFF00 + c), a),
+      0xF2 => ld!(a, (FF00 + c)),
+      0xE2 => ld!((FF00 + c), a),
 
       0x22 => ldi!((h l), a),
       0x2A => ldi!(a, (h l)),
