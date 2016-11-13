@@ -311,7 +311,7 @@ impl Cpu {
         let mut addr = to_u16!(self.h, self.l);
         let v = self.a;
         self.write(addr, v);
-        addr += addr.wrapping_sub(1);
+        addr = addr.wrapping_sub(1);
         let (h, l) = from_u16!(addr);
         self.h = h;
         self.l = l;
