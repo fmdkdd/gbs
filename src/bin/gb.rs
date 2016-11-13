@@ -47,7 +47,7 @@ fn main() {
 
     let mut frame = display.draw();
 
-    screen.draw_tile_table(&cpu.ram[0x8000..0x8FFF]);
+    screen.draw_tile_table(cpu.tile_table());
     screen.repaint(&mut frame);
 
     frame.finish().unwrap();
