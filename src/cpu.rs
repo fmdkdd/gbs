@@ -389,7 +389,9 @@ impl Cpu {
         let v = self.read(addr);
         let r = v.wrapping_add(1);
         self.write(addr, r);
-        flags!(z0h-, v, r);
+        z!(r);
+        n!(0);
+        h!(v, 1);
         cycles += 12;
       });
 
@@ -403,7 +405,9 @@ impl Cpu {
       ($r:ident) => ({
         let v = self.$r;
         self.$r = v.wrapping_add(1);
-        flags!(z0h-, v, self.$r);
+        z!(self.$r);
+        n!(0);
+        h!(v, 1);
         cycles += 4;
       });
 
@@ -425,7 +429,9 @@ impl Cpu {
         let v = self.read(addr);
         let r = v.wrapping_sub(1);
         self.write(addr, r);
-        flags!(z1h-, v, r);
+        z!(r);
+        n!(1);
+        h!(v, 1, -);
         cycles += 12;
       });
 
@@ -439,7 +445,9 @@ impl Cpu {
       ($r:ident) => ({
         let v = self.$r;
         self.$r = v.wrapping_sub(1);
-        flags!(z1h-, v, self.$r);
+        z!(self.$r);
+        n!(1);
+        h!(v, 1, -);
         cycles += 4;
       });
 
@@ -457,15 +465,11 @@ impl Cpu {
     macro_rules! add1 {
       ($n:expr) => ({
         let n = $n;
-        let mut r = self.a as u16;
-        r += n as u16;
-
-        let mut rh = self.a & 0xF;
-        rh += n & 0xF;
-
-        flags!(z0hc, r, rh);
-
-        self.a = r as u8;
+        h!(self.a, n);
+        c!(self.a, n);
+        self.a = self.a.wrapping_add(n);
+        z!(self.a);
+        n!(0);
       });
     }
 
@@ -497,7 +501,7 @@ impl Cpu {
         let mut rh = self.h & 0xF;
         rh += ((self.sp >> 8) & 0xF) as u8;
 
-        flags!(-0hc, r, rh);
+        // flags!(-0hc, r, rh);
 
         let (h, l) = from_u16!(r as u16);
         self.h = h;
@@ -521,7 +525,7 @@ impl Cpu {
         let mut rh = self.h & 0xF;
         rh += self.$rh & 0xF;
 
-        flags!(-0hc, r, rh);
+        // flags!(-0hc, r, rh);
 
         let (h, l) = from_u16!(r as u16);
         self.h = h;
@@ -534,17 +538,15 @@ impl Cpu {
     macro_rules! adc1 {
       ($n:expr) => ({
         let n = $n;
-        let mut r = self.a as u16;
-        r += if self.c() { 1 } else { 0 };
-        r += n as u16;
-
-        let mut rh = self.a & 0xF;
-        rh += if self.c() { 1 } else { 0 };
-        rh += n & 0xF;
-
-        flags!(z0hc, r, rh);
-
-        self.a = r as u8;
+        let a = self.a;
+        self.a = a.wrapping_add(n);
+        if self.f & C_FLAG > 0 {
+          self.a = self.a.wrapping_add(1);
+        }
+        z!(self.a);
+        n!(0);
+        h!(a, n, 1);
+        c!(a, n, 1);
       });
     }
 
@@ -572,15 +574,12 @@ impl Cpu {
     macro_rules! sub1 {
       ($n:expr) => ({
         let n = $n;
-        let mut r = self.a as i16;
-        r -= n as i16;
-
-        let mut rh = (self.a & 0xF) as i8;
-        rh -= (n & 0xF) as i8;
-
-        flags!(z1hc, r, rh);
-
-        self.a = r as u8;
+        let a = self.a;
+        self.a = self.a.wrapping_sub(n);
+        z!(self.a);
+        n!(1);
+        h!(a, n, -);
+        c!(a, n, -);
       });
     }
 
@@ -608,17 +607,16 @@ impl Cpu {
     macro_rules! sbc1 {
       ($n:expr) => ({
         let n = $n;
-        let mut r = self.a as i16;
-        r -= if self.c() { 1 } else { 0 };
-        r -= n as i16;
+        let a = self.a;
 
-        let mut rh = (self.a & 0xF) as i8;
-        rh -= if self.c() { 1 } else { 0 };
-        rh -= (n & 0xF) as i8;
-
-        flags!(z1hc, r, rh);
-
-        self.a = r as u8;
+        self.a = self.a.wrapping_sub(n);
+        if self.f & C_FLAG > 0 {
+          self.a = self.a.wrapping_sub(1);
+        }
+        z!(self.a);
+        n!(1);
+        h!(a, n, -);
+        c!(a, n, -);
       });
     }
 
@@ -648,21 +646,21 @@ impl Cpu {
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
         self.a &= self.read(addr);
-        flags!(z010, self.a);
+        z!(self.a); n!(0); h!(1); c!(0);
         cycles += 8;
       });
 
       // AND A,n
       (n) => ({
         self.a &= self.read_pc();
-        flags!(z010, self.a);
+        z!(self.a); n!(0); h!(1); c!(0);
         cycles += 8;
       });
 
       // AND A,r
       ($r:ident) => ({
         self.a &= self.$r;
-        flags!(z010, self.a);
+        z!(self.a); n!(0); h!(1); c!(0);
         cycles += 4;
       });
     }
@@ -672,21 +670,21 @@ impl Cpu {
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
         self.a ^= self.read(addr);
-        flags!(z000, self.a);
+        z!(self.a); n!(0); h!(0); c!(0);
         cycles += 8;
       });
 
       // XOR A,n
       (n) => ({
         self.a ^= self.read_pc();
-        flags!(z000, self.a);
+        z!(self.a); n!(0); h!(0); c!(0);
         cycles += 8;
       });
 
       // XOR A,r
       ($r:ident) => ({
         self.a ^= self.$r;
-        flags!(z000, self.a);
+        z!(self.a); n!(0); h!(0); c!(0);
         cycles += 4;
       });
     }
@@ -696,21 +694,21 @@ impl Cpu {
       ((h l)) => ({
         let addr = to_u16!(self.h, self.l);
         self.a |= self.read(addr);
-        flags!(z000, self.a);
+        z!(self.a); n!(0); h!(0); c!(0);
         cycles += 8;
       });
 
       // OR A,n
       (n) => ({
         self.a |= self.read_pc();
-        flags!(z000, self.a);
+        z!(self.a); n!(0); h!(0); c!(0);
         cycles += 8;
       });
 
       // OR A,r
       ($r:ident) => ({
         self.a |= self.$r;
-        flags!(z000, self.a);
+        z!(self.a); n!(0); h!(0); c!(0);
         cycles += 4;
       });
     }
@@ -718,13 +716,12 @@ impl Cpu {
     macro_rules! cp1 {
       ($n:expr) => ({
         let n = $n;
-        let mut r = self.a as i16;
-        r -= n as i16;
-
-        let mut rh = (self.a & 0xF) as i8;
-        rh -= (n & 0xF) as i8;
-
-        flags!(z1hc, r, rh);
+        let r = self.a.wrapping_sub(n);
+        // flags!(z1hc, r, rh);
+        z!(r);
+        n!(1);
+        h!(self.a, n, -);
+        c!(self.a, n, -);
       });
     }
 
@@ -982,129 +979,58 @@ impl Cpu {
       });
     }
 
-    macro_rules! flags {
-      // First argument stands for znhc flags.
-      //   z: set if $r is 0
-      //   n: 0 or 1
-      //   h: set if nibble overflow
-      //   c: set if operation overflow/underflow
-      // $v: value before operation
-      // $r: value after operation
+    // Flags macros
 
-      (z0h-, $v:expr, $r:expr) => ({
-        self.f =
-          ((($r == 0) as u8) << 7)
-          | (((($v & 0xF) == 0xF) as u8) << 5)
-          | (self.f & C_FLAG);
+    macro_rules! z {
+      (0) => ({ self.f &= !Z_FLAG; });
+      (1) => ({ self.f |= Z_FLAG; });
+      ($n:expr) => ({ if ($n) == 0 { z!(1); } else { z!(0); } });
+    }
+
+    macro_rules! n {
+      (0) => ({ self.f &= !N_FLAG; });
+      (1) => ({ self.f |= N_FLAG; });
+      (n) => ({ self.f = self.a == 0; });
+    }
+
+    macro_rules! h {
+      (0) => ({ self.f &= !H_FLAG; });
+      (1) => ({ self.f |= H_FLAG; });
+      ($a:expr, $b:expr) => ({
+        let r = (($a) & 0xF) + (($b) & 0xF);
+        if r > 0xF { h!(1); } else { h!(0); }
       });
-
-      (z1h-, $v:expr, $r:expr) => ({
-        self.f =
-          ((($r == 0) as u8) << 7)
-          | ((($v == 0) as u8) << 5)
-          | N_FLAG
-          | (self.f & C_FLAG);
+      ($a:expr, $b:expr, 1) => ({
+        let r = (($a) & 0xF) + (($b) & 0xF) + 1;
+        if r > 0xF { h!(1); } else { h!(0); }
       });
-
-      // $r: result as u16
-      // $rh: result of nibble operation as u8
-      (z0hc, $r:expr, $rh:expr) => ({
-        if ($r & 0x00FF) == 0 {
-          self.set_z();
-        }
-        else {
-          self.clear_z();
-        }
-
-        self.clear_n();
-
-        if ($rh & 0xF0) > 0 {
-          self.set_h();
-        }
-        else {
-          self.clear_h();
-        }
-
-        if ($r & 0xFF00) > 0 {
-          self.set_c();
-        }
-        else  {
-          self.clear_c();
-        }
+      ($a:expr, $b:expr, -) => ({
+        let r = (($a) & 0xF) as i8 - (($b) & 0xF) as i8;
+        if r < 0 { h!(1); } else { h!(0); }
       });
+    }
 
-      // $r: result as u16
-      // $rh: result of nibble operation as u8
-      (z1hc, $r:expr, $rh:expr) => ({
-        if ($r & 0x00FF) == 0 {
-          self.set_z();
-        }
-        else {
-          self.clear_z();
-        }
-
-        self.set_n();
-
-        if $rh < 0 {
-          self.set_h();
-        }
-        else {
-          self.clear_h();
-        }
-
-        if $r < 0 {
-          self.set_c();
-        }
-        else  {
-          self.clear_c();
-        }
+    macro_rules! c {
+      (0) => ({ self.f &= !C_FLAG; });
+      (1) => ({ self.f |= C_FLAG; });
+      ($a:expr, $b:expr) => ({
+        let r = ($a) as u16 + (($b) as u16);
+        if r > 0xFF { c!(1); } else { c!(0); }
       });
-
-      (z010, $r:expr) => ({
-        if $r == 0 {
-          self.set_z();
+      ($a:expr, $b:expr, 1) => ({
+        let mut r = ($a) as u16 + (($b) as u16);
+        if self.f & C_FLAG > 0 {
+          r = r.wrapping_add(1);
         }
-        else {
-          self.clear_z();
-        }
-
-        self.clear_n();
-        self.set_h();
-        self.clear_c();
+        if r > 0xFF { c!(1); } else { c!(0); }
       });
-
-      (z000, $r:expr) => ({
-        if $r == 0 {
-          self.set_z();
-        }
-        else {
-          self.clear_z();
-        }
-
-        self.clear_n();
-        self.clear_h();
-        self.clear_c();
+      ($a:expr, $b:expr, -) => ({
+        let r = ($a) as i16 - (($b) as i16);
+        if r < 0 { c!(1); } else { c!(0); }
       });
-
-      // $r: u32
-      // $rh: u8
-      (-0hc, $r:expr, $rh:expr) => ({
-        self.clear_n();
-
-        if ($rh & 0xF0) > 0 {
-          self.set_h();
-        }
-        else {
-          self.clear_h();
-        }
-
-        if ($r & 0xFFFF0000) > 0 {
-          self.set_c();
-        }
-        else {
-          self.clear_c();
-        }
-
+      ($a:expr, $b:expr, -, 1) => ({
+        let r = ($a) as i16 - (($b) as i16) - 1;
+        if r < 0 { c!(1); } else { c!(0); }
       });
     }
 
