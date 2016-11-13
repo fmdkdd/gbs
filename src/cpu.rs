@@ -16,7 +16,7 @@ pub struct Cpu {
   l: u8,
   pub sp: u16,
   pub pc: u16,
-  ram: [u8; RAM_LENGTH],
+  pub ram: [u8; RAM_LENGTH],
 
   interrupts_enabled: bool,
 }
@@ -1744,7 +1744,7 @@ impl Cpu {
     cycles
   }
 
-  pub fn runFor(&mut self, cycles: u64) {
+  pub fn run_for(&mut self, cycles: u64) {
     let mut c : u64 = 0;
 
     while c < cycles {

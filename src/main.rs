@@ -37,5 +37,5 @@ fn main() {
   cpu.pc = gbs.init_addr;
 
   // Play
-  cpu.run(100);
+  cpu.run_for(100);
 }

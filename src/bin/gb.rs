@@ -42,14 +42,12 @@ fn main() {
   cpu.reset();
 
   // Play
-  cpu.runFor(1000000);
-
-  cpu.draw_vtable();
-
   loop {
+    cpu.run_for(70221);
+
     let mut frame = display.draw();
 
-    cpu.step();
+    screen.draw_tile_table(&cpu.ram[0x8000..0x8FFF]);
     screen.repaint(&mut frame);
 
     frame.finish().unwrap();

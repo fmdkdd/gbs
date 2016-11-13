@@ -1,5 +1,3 @@
-use std::collections::VecDeque;
-
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 use glium::{Surface, VertexBuffer, IndexBuffer, Program};
@@ -107,7 +105,7 @@ impl Screen {
     let y = y % SCREEN_HEIGHT;
 
     let pos = y * SCREEN_WIDTH + x;
-    self.pixels[pos] = p;
+    self.pixels[pos] = p *  64;
   }
 
   pub fn draw_sprite(&mut self, x: usize, y: usize, sprite: &[u8]) {
@@ -117,6 +115,53 @@ impl Screen {
     for yy in 0..height {
       for xx in 0..width {
         self.draw_pixel(sprite[yy * width + xx], x + xx, y + yy);
+      }
+    }
+  }
+
+  pub fn draw_line(&mut self, x: u8, y: u8, line: Vec<u8>) {
+    let mut xx = x;
+    for p in line {
+      self.draw_pixel(p, xx as usize, y as usize);
+      xx = xx.saturating_add(1);
+    }
+  }
+
+  pub fn combine(up: u8, low: u8) -> Vec<u8> {
+    let mut line = Vec::new();
+    let mut upp = up;
+    let mut loww = low;
+    for _ in 0..8 {
+      line.push((upp & 1) * 2 + (loww & 1));
+      upp >>= 1;
+      loww >>= 1;
+    }
+
+    line.reverse();
+    line
+  }
+
+  pub fn draw_tile(&mut self, x: u8, y: u8, tile: &[u8]) {
+    let mut i = 0;
+    let mut yy = y;
+    while i < tile.len() - 1 {
+      self.draw_line(x, yy, Self::combine(tile[i], tile[i + 1]));
+      i += 2;
+      yy = yy.saturating_add(1);
+    }
+  }
+
+  pub fn draw_tile_table(&mut self, table: &[u8]) {
+    let mut i = 0;
+    let mut x = 0;
+    let mut y = 0;
+    while i < table.len() - 16 {
+      self.draw_tile(x, y, &table[i..i+16]);
+      i += 16;
+      x = x.saturating_add(8);
+      if x == 255 {
+        x = 0;
+        y = y.saturating_add(8);
       }
     }
   }
