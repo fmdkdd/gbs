@@ -77,7 +77,6 @@ impl Cpu {
   pub fn f_setb(&mut self, f: FLAG, b: bool) { self.r.f_setb(f, b); }
 
   pub fn reset(&mut self) {
-    // TODO
     self.rr_set(AF, 0x01B0);
     self.rr_set(BC, 0x0013);
     self.rr_set(DE, 0x00D8);
@@ -101,7 +100,7 @@ impl Cpu {
   }
 
   pub fn read_pc(&mut self) -> u8 {
-    let mut pc = self.rr(PC);
+    let pc = self.rr(PC);
     let ret = self.read(pc);
     self.rr_set(PC, pc.wrapping_add(1));
     ret

@@ -1,6 +1,6 @@
 use cpu::registers::{R8, R16, FLAG};
-use cpu::registers::R8::{A, B, C, D, E, F, H, L};
-use cpu::registers::R16::{BC, DE, HL, SP, PC};
+use cpu::registers::R8::{A, C};
+use cpu::registers::R16::{HL, SP, PC};
 use cpu::registers::FLAG::{Z, N, H as HY, C as CY};
 use cpu::cpu::Cpu;
 
