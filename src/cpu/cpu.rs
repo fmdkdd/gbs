@@ -746,7 +746,7 @@ impl Cpu {
       0xEF => self.op_rst(0x28),
       0xFF => self.op_rst(0x38),
 
-      _ => 0,
+      _ => unreachable!(),
     }
   }
 
