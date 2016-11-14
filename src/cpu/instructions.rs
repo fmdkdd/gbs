@@ -137,7 +137,9 @@ impl Cpu {
   }
 
   pub fn op_ld_hl_sp_dd(&mut self) -> u8 {
-    let dd = self.read_pc() as i32;
+    // Casting to i32 directly loses the sign
+    let dd = (self.read_pc() as i8) as i32;
+    // Casting to i16 would add an unwanted sign
     let sp = self.rr(SP) as i32;
     self.rr_set(HL, sp.wrapping_add(dd) as u16);
     self.f_clear(Z);
@@ -448,7 +450,22 @@ impl Cpu {
   }
 
   pub fn op_daa(&mut self) -> u8 {
-    // unimplemented!();
+    // Code lifted from Higan, because specs are glossing over this one
+    let mut a = self.r(A) as u16;
+    if self.f(N) {
+      if self.f(HY) || ((a & 0x0F) > 0x09) { a = a.wrapping_add(0x06) }
+      if self.f(CY) || ((a       ) > 0x9F) { a = a.wrapping_add(0x60) }
+    } else {
+      if self.f(HY) {
+        a = a.wrapping_sub(0x06);
+        if !self.f(CY) { a &= 0xFF }
+      }
+      if self.f(CY) { a = a.wrapping_sub(0xFF) }
+    }
+    self.r_set(A, a as u8);
+    self.f_setb(Z, a == 0);
+    self.f_clear(HY);
+    self.f_setb(CY, a & 0x100 > 0);
     4
   }
 
@@ -487,7 +504,9 @@ impl Cpu {
   }
 
   pub fn op_add_sp_dd(&mut self) -> u8 {
-    let dd = self.read_pc() as i32;
+    // Casting to i32 directly loses the sign
+    let dd = (self.read_pc() as i8) as i32;
+    // Casting to i16 would add an unwanted sign
     let sp = self.rr(SP) as i32;
     self.rr_set(SP, sp.wrapping_add(dd) as u16);
     self.f_clear(Z);
@@ -815,6 +834,109 @@ impl Cpu {
   pub fn op_ei(&mut self) -> u8 {
     self.ime = 1;
     4
+  }
+
+  // Jumps
+
+  pub fn op_jp_nn(&mut self) -> u8 {
+    let nn = self.read_pc_16le();
+    self.rr_set(PC, nn);
+    16
+  }
+
+  pub fn op_jp_hl(&mut self) -> u8 {
+    let hl = self.rr(HL);
+    self.rr_set(PC, hl);
+    4
+  }
+
+  pub fn op_jp_f_nn(&mut self, f: FLAG, b: bool) -> u8 {
+    let nn = self.read_pc_16le();
+    let mut cycles = 12;
+    if self.f(f) == b {
+      self.rr_set(PC, nn);
+      cycles += 4;
+    }
+    cycles
+  }
+
+  pub fn op_jr_dd(&mut self) -> u8 {
+    // Casting to i32 directly loses the sign
+    let dd = (self.read_pc() as i8) as i32;
+    // Casting to i16 would add an unwanted sign
+    let pc = self.rr(PC) as i32;
+    self.rr_set(PC, pc.wrapping_add(dd) as u16);
+    12
+  }
+
+  pub fn op_jr_f_dd(&mut self, f: FLAG, b: bool) -> u8 {
+    // Casting to i32 directly loses the sign
+    let dd = (self.read_pc() as i8) as i32;
+    // Casting to i16 would add an unwanted sign
+    let pc = self.rr(PC) as i32;
+    let mut cycles = 8;
+    if self.f(f) == b {
+      self.rr_set(PC, pc.wrapping_add(dd) as u16);
+      cycles += 4;
+    }
+    cycles
+  }
+
+  pub fn op_call_nn(&mut self) -> u8 {
+    let nn = self.read_pc_16le();
+    let sp = self.rr(SP).wrapping_sub(2);
+    let pc = self.rr(PC);
+    self.rr_set(SP, sp);
+    self.write_16le(sp, pc);
+    self.rr_set(PC, nn);
+    24
+  }
+
+  pub fn op_call_f_nn(&mut self, f: FLAG, b: bool) -> u8 {
+    let nn = self.read_pc_16le();
+    let mut cycles = 12;
+    if self.f(f) == b {
+      let sp = self.rr(SP).wrapping_sub(2);
+      let pc = self.rr(PC);
+      self.rr_set(SP, sp);
+      self.write_16le(sp, pc);
+      self.rr_set(PC, nn);
+      cycles += 12;
+    }
+    cycles
+  }
+
+  pub fn op_ret(&mut self) -> u8 {
+    let sp = self.rr(SP);
+    let pc = self.read_16le(sp);
+    self.rr_set(SP, sp.wrapping_add(2));
+    self.rr_set(PC, pc);
+    16
+  }
+
+  pub fn op_ret_f(&mut self, f: FLAG, b: bool) -> u8 {
+    let mut cycles = 8;
+    if self.f(f) == b {
+      let sp = self.rr(SP);
+      let pc = self.read_16le(sp);
+      self.rr_set(SP, sp.wrapping_add(2));
+      self.rr_set(PC, pc);
+      cycles += 12;
+    }
+    cycles
+  }
+
+  pub fn op_reti(&mut self) -> u8 {
+    self.ime = 1;
+    self.op_ret()
+  }
+
+  pub fn op_rst(&mut self, n: u8) -> u8 {
+    let sp = self.rr(SP).wrapping_sub(2);
+    let pc = self.rr(PC);
+    self.write_16le(sp, pc);
+    self.rr_set(PC, n as u16);
+    16
   }
 
 }

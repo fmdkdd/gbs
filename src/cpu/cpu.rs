@@ -78,14 +78,10 @@ impl Cpu {
 
   pub fn reset(&mut self) {
     // TODO
-    self.r_set(A, 0x00);
-    self.r_set(B, 0x00);
-    self.r_set(C, 0x13);
-    self.r_set(D, 0x00);
-    self.r_set(E, 0xD8);
-    self.r_set(H, 0x01);
-    self.r_set(L, 0x4D);
-    self.r_set(F, 0x01);
+    self.rr_set(AF, 0x01B0);
+    self.rr_set(BC, 0x0013);
+    self.rr_set(DE, 0x00D8);
+    self.rr_set(HL, 0x014D);
     self.rr_set(PC, 0x0100);
     self.rr_set(SP, 0xFFFE);
   }
@@ -156,8 +152,8 @@ impl Cpu {
 
       0x00 => self.op_nop(),
       0x10 => self.op_stop(),
-      // 0x20 => self.op_jr(Z),
-      // 0x30 => self.op_jr(C),
+      0x20 => self.op_jr_f_dd(FLAG::Z, false),
+      0x30 => self.op_jr_f_dd(FLAG::C, false),
 
       0x01 => self.op_ld_rr_nn(BC),
       0x11 => self.op_ld_rr_nn(DE),
@@ -195,9 +191,9 @@ impl Cpu {
       0x37 => self.op_scf(),
 
       0x08 => self.op_ld_nn_sp(),
-      // 0x18 => jr!(dd),
-      // 0x28 => jr!(z),
-      // 0x38 => jr!(c),
+      0x18 => self.op_jr_dd(),
+      0x28 => self.op_jr_f_dd(FLAG::Z, true),
+      0x38 => self.op_jr_f_dd(FLAG::Z, true),
 
       0x09 => self.op_add_hl_rr(BC),
       0x19 => self.op_add_hl_rr(DE),
@@ -378,8 +374,8 @@ impl Cpu {
       0xBE => self.op_cp_hl(),
       0xBF => self.op_cp_r(A),
 
-      // 0xC0 => ret!(nz),
-      // 0xD0 => ret!(nc),
+      0xC0 => self.op_ret_f(FLAG::Z, false),
+      0xD0 => self.op_ret_f(FLAG::C, false),
       0xE0 => self.op_ld_ffn_a(),
       0xF0 => self.op_ld_a_ffn(),
 
@@ -388,18 +384,18 @@ impl Cpu {
       0xE1 => self.op_pop_rr(HL),
       0xF1 => self.op_pop_rr(AF),
 
-      // 0xC2 => jp!(nz),
-      // 0xD2 => jp!(nc),
+      0xC2 => self.op_jp_f_nn(FLAG::Z, false),
+      0xD2 => self.op_jp_f_nn(FLAG::C, false),
       0xE2 => self.op_ld_ffc_a(),
       0xF2 => self.op_ld_a_ffc(),
 
-      // 0xC3 => jp!(nn),
+      0xC3 => self.op_jp_nn(),
       0xD3 => self.op_nop(),
       0xE3 => self.op_nop(),
       0xF3 => self.op_di(),
 
-      // 0xC4 => call!(nz),
-      // 0xD4 => call!(nc),
+      0xC4 => self.op_call_f_nn(FLAG::Z, false),
+      0xD4 => self.op_call_f_nn(FLAG::C, false),
       0xE4 => self.op_nop(),
       0xF4 => self.op_nop(),
 
@@ -413,23 +409,23 @@ impl Cpu {
       0xE6 => self.op_and_n(),
       0xF6 => self.op_or_n(),
 
-      // 0xC7 => rst!(0x00),
-      // 0xD7 => rst!(0x10),
-      // 0xE7 => rst!(0x20),
-      // 0xF7 => rst!(0x30),
+      0xC7 => self.op_rst(0x00),
+      0xD7 => self.op_rst(0x10),
+      0xE7 => self.op_rst(0x20),
+      0xF7 => self.op_rst(0x30),
 
-      // 0xC8 => ret!(z),
-      // 0xD8 => ret!(c),
+      0xC8 => self.op_ret_f(FLAG::Z, true),
+      0xD8 => self.op_ret_f(FLAG::C, true),
       0xE8 => self.op_add_sp_dd(),
       0xF8 => self.op_ld_hl_sp_dd(),
 
-      // 0xC9 => ret!(),
-      // 0xD9 => reti!(),
-      // 0xE9 => jp!(hl),
+      0xC9 => self.op_ret(),
+      0xD9 => self.op_reti(),
+      0xE9 => self.op_jp_hl(),
       0xF9 => self.op_ld_sp_hl(),
 
-      // 0xCA => jp!(z),
-      // 0xDA => jp!(c),
+      0xCA => self.op_jp_f_nn(FLAG::Z, true),
+      0xDA => self.op_jp_f_nn(FLAG::C, true),
       0xEA => self.op_ld_nn_a(),
       0xFA => self.op_ld_a_nn(),
 
@@ -731,12 +727,12 @@ impl Cpu {
       0xEB => self.op_nop(),
       0xFB => self.op_ei(),
 
-      // 0xCC => call!(z),
-      // 0xDC => call!(c),
+      0xCC => self.op_call_f_nn(FLAG::Z, true),
+      0xDC => self.op_call_f_nn(FLAG::C, true),
       0xEC => self.op_nop(),
       0xFC => self.op_nop(),
 
-      // 0xCD => call!(nn),
+      0xCD => self.op_call_nn(),
       0xDD => self.op_nop(),
       0xED => self.op_nop(),
       0xFD => self.op_nop(),
@@ -746,10 +742,10 @@ impl Cpu {
       0xEE => self.op_xor_n(),
       0xFE => self.op_cp_n(),
 
-      // 0xCF => rst!(0x08),
-      // 0xDF => rst!(0x18),
-      // 0xEF => rst!(0x28),
-      // 0xFF => rst!(0x38),
+      0xCF => self.op_rst(0x08),
+      0xDF => self.op_rst(0x18),
+      0xEF => self.op_rst(0x28),
+      0xFF => self.op_rst(0x38),
 
       _ => 0,
     }
