@@ -529,7 +529,7 @@ impl Cpu {
   fn _rl(&mut self, x: u8) -> u8 {
     let mut v = x.rotate_left(1);
     let c = v & 0x01 > 0;
-    if self.f(CY) { v |= 1; }
+    if self.f(CY) { v |= 1 } else { v &= !1 }
     self.f_clear(N);
     self.f_clear(HY);
     self.f_setb(CY, c);
@@ -547,7 +547,7 @@ impl Cpu {
   fn _rr(&mut self, x: u8) -> u8 {
     let mut v = x.rotate_right(1);
     let c = v & 0b1000_0000 > 0;
-    if self.f(CY) { v |= 0b1000_0000; }
+    if self.f(CY) { v |= 0b1000_0000 } else { v &= !0b1000_0000; }
     self.f_clear(N);
     self.f_clear(HY);
     self.f_setb(CY, c);

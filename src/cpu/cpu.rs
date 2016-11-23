@@ -77,12 +77,12 @@ impl Cpu {
   pub fn f_setb(&mut self, f: FLAG, b: bool) { self.r.f_setb(f, b); }
 
   pub fn reset(&mut self) {
-    self.rr_set(AF, 0x01B0);
-    self.rr_set(BC, 0x0013);
-    self.rr_set(DE, 0x00D8);
-    self.rr_set(HL, 0x014D);
-    self.rr_set(PC, 0x0100);
-    self.rr_set(SP, 0xFFFE);
+    self.rr_set(AF, 0);
+    self.rr_set(BC, 0);
+    self.rr_set(DE, 0);
+    self.rr_set(HL, 0);
+    self.rr_set(PC, 0);
+    self.rr_set(SP, 0);
   }
 
   pub fn load_rom(&mut self, rom: &Vec<u8>, offset: usize) {
