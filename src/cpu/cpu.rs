@@ -123,8 +123,12 @@ impl Cpu {
   }
 
   pub fn write(&mut self, addr: u16, x: u8) {
-    if addr == 0xFF01 {
-      println!("{:x} {}", x, ASCII[x as usize]);
+    if cfg!(feature = "debug") {
+      match addr {
+        0xFF01 => println!("{:x} {}", x, ASCII[x as usize]),
+        0xFF50 => println!("bingo"),
+        _ => {},
+      }
     }
 
     self.ram[addr as usize] = x;
@@ -142,6 +146,12 @@ impl Cpu {
 
   // Run the next instruction
   pub fn step(&mut self) -> u8 {
+    if cfg!(feature = "debug") {
+      println!("{:04x} AF:{:04x} BC:{:04x} DE:{:04x} HL:{:04x} SP:{:04x}",
+               self.rr(PC), self.rr(AF), self.rr(BC),
+               self.rr(DE), self.rr(HL), self.rr(SP));
+    }
+
     let opcode = self.read_pc();
     match opcode {
       // Following the table at
