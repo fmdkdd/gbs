@@ -6,7 +6,7 @@ use std::fs::File;
 
 use gbs::gb_parser;
 use gbs::cpu;
-use gbs::screen::{self, Screen};
+use gbs::screen::{Screen};
 
 #[macro_use]
 extern crate glium;
@@ -40,10 +40,10 @@ fn main() {
   // Init screen
   let display = glium::glutin::WindowBuilder::new()
     .with_title("GBS")
-    .with_dimensions((screen::SCREEN_WIDTH * SCREEN_ZOOM) as u32,
-                     (screen::SCREEN_HEIGHT * SCREEN_ZOOM) as u32)
+    .with_dimensions((256 * SCREEN_ZOOM) as u32,
+                     (256 * SCREEN_ZOOM) as u32)
     .build_glium().unwrap();
-  let mut screen = Screen::new(&display);
+  let mut screen = Screen::new(&display, 256, 256);
 
   // Init
   cpu.reset();
@@ -54,7 +54,7 @@ fn main() {
 
     let mut frame = display.draw();
 
-    screen.draw_tile_table(cpu.tile_table());
+    // screen.draw_tile_table(cpu.tile_table());
     screen.repaint(&mut frame);
 
     frame.finish().unwrap();
