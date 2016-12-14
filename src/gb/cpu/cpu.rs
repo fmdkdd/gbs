@@ -1,7 +1,7 @@
-use cpu::registers::{Registers, R8, R16, FLAG};
-use cpu::registers::R8::*;
-use cpu::registers::R16::*;
-use utils::{from_u16, to_u16};
+use gb::cpu::registers::{Registers, R8, R16, FLAG};
+use gb::cpu::registers::R8::*;
+use gb::cpu::registers::R16::*;
+use gb::utils::{from_u16, to_u16};
 
 const RAM_LENGTH : usize = 0x10000;
 
@@ -140,8 +140,8 @@ impl Cpu {
     self.ram[(addr.wrapping_add(1)) as usize] = h;
   }
 
-  pub fn tile_table(&self) -> &[u8] {
-    &self.ram[0x8000..0x8FFF]
+  pub fn tile_pattern_table(&self) -> &[u8] {
+    &self.ram[0x8000..0x9000]
   }
 
   // Run the next instruction

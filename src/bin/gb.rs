@@ -3,8 +3,9 @@ extern crate gbs;
 use std::env;
 
 use gbs::gb_parser;
-use gbs::cpu;
-use gbs::screen::{self, Screen};
+use gbs::screen;
+use gbs::gb::cpu;
+use gbs::gb::lcd;
 
 #[macro_use]
 extern crate glium;
@@ -32,22 +33,24 @@ fn main() {
 
   // Init screen
   let display = glium::glutin::WindowBuilder::new()
-    .with_title("GBS")
-    .with_dimensions((screen::SCREEN_WIDTH * SCREEN_ZOOM) as u32,
-                     (screen::SCREEN_HEIGHT * SCREEN_ZOOM) as u32)
+    .with_title("RustBoy")
+    .with_dimensions((256 * SCREEN_ZOOM) as u32,
+                     (256 * SCREEN_ZOOM) as u32)
     .build_glium().unwrap();
-  let mut screen = Screen::new(&display);
+  let mut screen = screen::Screen::new(&display, 256, 256);
+
+  let lcd = lcd::LCD::new();
 
   // Init
   cpu.reset();
 
   // Play
   loop {
-    cpu.run_for(70221);
+    cpu.run_for(70224);
 
     let mut frame = display.draw();
 
-    screen.draw_tile_table(cpu.tile_table());
+    lcd.draw_tiles(&lcd.tiles(cpu.tile_pattern_table()), &mut screen);
     screen.repaint(&mut frame);
 
     frame.finish().unwrap();

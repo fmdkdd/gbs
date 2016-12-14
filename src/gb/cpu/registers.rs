@@ -1,4 +1,4 @@
-use utils::{to_u16, from_u16};
+use gb::utils::{to_u16, from_u16};
 
 const Z_FLAG : u8 = 0b1000_0000;
 const N_FLAG : u8 = 0b0100_0000;

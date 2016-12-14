@@ -1,8 +1,8 @@
-use cpu::registers::{R8, R16, FLAG};
-use cpu::registers::R8::{A, C};
-use cpu::registers::R16::{HL, SP, PC};
-use cpu::registers::FLAG::{Z, N, H as HY, C as CY};
-use cpu::cpu::Cpu;
+use gb::cpu::registers::{R8, R16, FLAG};
+use gb::cpu::registers::R8::{A, C};
+use gb::cpu::registers::R16::{HL, SP, PC};
+use gb::cpu::registers::FLAG::{Z, N, H as HY, C as CY};
+use gb::cpu::cpu::Cpu;
 
 impl Cpu {
 

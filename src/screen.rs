@@ -13,10 +13,11 @@ struct Vertex {
 }
 implement_vertex!(Vertex, position, tex_coords);
 
-// A Glium screen to draw pixels upon
+// An array of pixels to draw upon, backed by a Glium display
 pub struct Screen {
   width: u32,
   height: u32,
+  pixels: Vec<u8>,
   program: Program,
   vertex_buffer: VertexBuffer<Vertex>,
   index_buffer: IndexBuffer<u16>,
@@ -68,6 +69,7 @@ impl Screen {
     Screen {
       width: width,
       height: height,
+      pixels: vec![0u8; (width * height) as usize],
       program: program,
       vertex_buffer: vertex_buffer,
       index_buffer: index_buffer,
@@ -76,14 +78,16 @@ impl Screen {
     }
   }
 
-  // Update the pixel buffer from a slice of pixels
-  pub fn update(&mut self, pixels: &[u8]) {
-    self.pixel_buffer.write(pixels);
+  // Update the virtual pixel screen with a closure
+  pub fn draw<F>(&mut self, draw_fn: F) where F: Fn(&mut [u8]) {
+    draw_fn(&mut self.pixels);
   }
 
-  // Update the texture from the current state of pixel buffer and execute a
-  // draw call on the supplied frame.
+  // Update the pixel buffer from the virtual pixel screen, upload the pixel
+  // buffer to the texture, and execute a draw call on the supplied frame.
   pub fn repaint<S: Surface>(&mut self, frame: &mut S) {
+    self.pixel_buffer.write(&self.pixels);
+
     // TODO: Maybe create new textures?
     // Should test with full speed to see if it impacts the frame time.
     self.texture.main_level().raw_upload_from_pixel_buffer(
