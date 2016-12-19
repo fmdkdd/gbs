@@ -4,8 +4,7 @@ use std::env;
 
 use gbs::gb_parser;
 use gbs::screen;
-use gbs::gb::cpu;
-use gbs::gb::lcd;
+use gbs::gb::{self, lcd};
 
 #[macro_use]
 extern crate glium;
@@ -27,9 +26,9 @@ fn main() {
   println!("Cartridge type: {}", gbs.cartridge_type);
   println!("ROM size: {}", gbs.rom_size);
 
-  let mut cpu = cpu::Cpu::new();
+  let mut gb = gb::GB::new();
   // Load
-  cpu.load_rom(&gbs.rom, 0);
+  gb.load_rom(&gbs.rom, 0);
 
   // Init screen
   let display = glium::glutin::WindowBuilder::new()
@@ -42,15 +41,15 @@ fn main() {
   let lcd = lcd::LCD::new();
 
   // Init
-  cpu.reset();
+  gb.reset();
 
   // Play
   loop {
-    cpu.run_for(70224);
+    gb.run_for(70224);
 
     let mut frame = display.draw();
 
-    lcd.draw_tiles(&lcd.tiles(cpu.tile_pattern_table()), &mut screen);
+    lcd.draw_tiles(&lcd.tiles(gb.tile_pattern_table()), &mut screen);
     screen.repaint(&mut frame);
 
     frame.finish().unwrap();

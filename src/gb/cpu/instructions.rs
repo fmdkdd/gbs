@@ -3,8 +3,9 @@ use gb::cpu::registers::R8::{A, C};
 use gb::cpu::registers::R16::{HL, SP, PC};
 use gb::cpu::registers::FLAG::{Z, N, H as HY, C as CY};
 use gb::cpu::cpu::Cpu;
+use gb::bus::Bus;
 
-impl Cpu {
+impl<B: Bus> Cpu<B> {
 
   // 8bit loads
 

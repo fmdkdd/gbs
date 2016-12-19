@@ -3,7 +3,8 @@ extern crate gbs;
 use std::env;
 
 use gbs::gbs_parser;
-use gbs::cpu;
+use gbs::gb::GB;
+use gbs::gb::cpu::{R8, R16};
 
 fn main() {
   let filename = env::args().nth(1)
@@ -26,16 +27,17 @@ fn main() {
   println!("copyright: {}", gbs.copyright);
   println!("rom len: {:x}", gbs.rom.len());
 
-  let mut cpu = cpu::Cpu::new();
+
+  let mut gb = GB::new();
   // Load
-  cpu.load_rom(&gbs.rom, gbs.load_addr as usize);
+  gb.load_rom(&gbs.rom, gbs.load_addr);
 
   // Init
-  cpu.reset();
-  cpu.sp = gbs.sp;
-  cpu.a = gbs.first_song;
-  cpu.pc = gbs.init_addr;
+  gb.reset();
+  gb.cpu.rr_set(R16::SP, gbs.sp);
+  gb.cpu.r_set(R8::A, gbs.first_song);
+  gb.cpu.rr_set(R16::PC, gbs.init_addr);
 
   // Play
-  cpu.run_for(100);
+  gb.run_for(100);
 }

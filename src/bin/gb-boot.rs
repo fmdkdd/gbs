@@ -6,8 +6,7 @@ use std::fs::File;
 
 use gbs::gb_parser;
 use gbs::screen;
-use gbs::gb::cpu;
-use gbs::gb::lcd;
+use gbs::gb::{self, cpu, lcd};
 
 #[macro_use]
 extern crate glium;
@@ -27,15 +26,15 @@ fn main() {
   println!("Cartridge type: {}", gbs.cartridge_type);
   println!("ROM size: {}", gbs.rom_size);
 
-  let mut cpu = cpu::Cpu::new();
+  let mut gb = gb::GB::new();
 
   // Load BIOS and ROM
-  cpu.load_rom(&gbs.rom, 0);
+  gb.load_rom(&gbs.rom, 0);
 
   let bios = File::open("boot.rom").expect("No BIOS rom found");
   let bios_file = BufReader::new(bios);
   let bios : Vec<u8> = bios_file.bytes().filter_map(|b| b.ok()).collect();
-  cpu.load_rom(&bios, 0);
+  gb.load_rom(&bios, 0);
 
   // Init screen
   let display = glium::glutin::WindowBuilder::new()
@@ -48,16 +47,16 @@ fn main() {
   let lcd = lcd::LCD::new();
 
   // Reset
-  cpu.reset();
+  gb.reset();
 
   // Play
   loop {
-    cpu.run_for(70224);
+    gb.run_for(70224);
 
     let mut frame = display.draw();
 
     // Let's draw the tile pattern table
-    lcd.draw_tiles(&lcd.tiles(cpu.tile_pattern_table()), &mut screen);
+    lcd.draw_tiles(&lcd.tiles(gb.tile_pattern_table()), &mut screen);
     screen.repaint(&mut frame);
 
     frame.finish().unwrap();

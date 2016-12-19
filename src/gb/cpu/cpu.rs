@@ -1,68 +1,21 @@
 use gb::cpu::registers::{Registers, R8, R16, FLAG};
 use gb::cpu::registers::R8::*;
 use gb::cpu::registers::R16::*;
-use gb::utils::{from_u16, to_u16};
+use gb::bus::Bus;
+use gb::utils::to_u16;
 
-const RAM_LENGTH : usize = 0x10000;
-
-const ASCII : [char; 256] = [
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ',
-
-  ' ', '!', '"', '$', '%', '&', '\'',
-  '(', ')', '*', '+', ',', '-', '.',
-  '/', '0', '1', '2', '3', '4', '5',
-  '6', '7', '8', '9', ':', ';', '<',
-  '=', '>', '?', '@', 'A', 'B', 'C',
-  'D', 'E', 'F', 'G', 'H', 'I', 'J',
-  'K', 'L', 'M', 'N', 'O', 'P', 'Q',
-  'R', 'S', 'T', 'U', 'V', 'W', 'X',
-  'Y', 'Z', '[', '\\', ']', '^', '_',
-  '`', 'a', 'b', 'c', 'd', 'e', 'f',
-  'g', 'h', 'i', 'j', 'k', 'l', 'm',
-  'n', 'o', 'p', 'q', 'r', 's', 't',
-  'u', 'v', 'w', 'x', 'y', 'z', '{',
-  '}', '~', ' ',
-
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ', ' ', ' ', ' ',
-  ' ', ' ', ' ', ' ',
-
-  ' ', '!', '"', '$', '%', '&', '\'',
-  '(', ')', '*', '+', ',', '-', '.',
-  '/', '0', '1', '2', '3', '4', '5',
-  '6', '7', '8', '9', ':', ';', '<',
-  '=', '>', '?', '@', 'A', 'B', 'C',
-  'D', 'E', 'F', 'G', 'H', 'I', 'J',
-  'K', 'L', 'M', 'N', 'O', 'P', 'Q',
-  'R', 'S', 'T', 'U', 'V', 'W', 'X',
-  'Y', 'Z', '[', '\\', ']', '^', '_',
-  '`', 'a', 'b', 'c', 'd', 'e', 'f',
-  'g', 'h', 'i', 'j', 'k', 'l', 'm',
-  'n', 'o', 'p', 'q', 'r', 's', 't',
-  'u', 'v', 'w', 'x', 'y', 'z', '{',
-  '}', '~', ' ',
-
-  ' ', ' ', ' ', ' '
-];
-
-pub struct Cpu {
+pub struct Cpu<B: Bus> {
   r: Registers,
-  ram: [u8; RAM_LENGTH],
   pub ime: u8,
+  pub bus: B,
 }
 
-impl Cpu {
-  pub fn new() -> Cpu {
+impl<B> Cpu<B> where B: Bus {
+  pub fn new(bus: B) -> Cpu<B> {
     Cpu {
       r: Registers::new(),
-      ram: [0; RAM_LENGTH],
       ime: 0,
+      bus: bus,
     }
   }
 
@@ -85,20 +38,6 @@ impl Cpu {
     self.rr_set(SP, 0);
   }
 
-  pub fn load_rom(&mut self, rom: &Vec<u8>, offset: usize) {
-    // Copy ROM into RAM banks 0 and 1, stopping at 0x7fff, or when ROM is
-    // empty.
-    let mut ra = offset;
-    let ra_max = 0x8000;
-    let mut ro = 0;
-    let ro_max = rom.len();
-    while ro < ro_max && ra < ra_max {
-      self.ram[ra] = rom[ro];
-      ra += 1;
-      ro += 1;
-    }
-  }
-
   pub fn read_pc(&mut self) -> u8 {
     let pc = self.rr(PC);
     let ret = self.read(pc);
@@ -113,35 +52,19 @@ impl Cpu {
   }
 
   pub fn read(&self, addr: u16) -> u8 {
-    self.ram[addr as usize]
+    self.bus.read(addr)
+  }
+
+  pub fn write(&mut self, addr: u16, w: u8) {
+    self.bus.write(addr, w);
   }
 
   pub fn read_16le(&self, addr: u16) -> u16 {
-    let l = self.ram[addr as usize];
-    let h = self.ram[(addr.wrapping_add(1)) as usize];
-    to_u16(h, l)
+    self.bus.read_16le(addr)
   }
 
-  pub fn write(&mut self, addr: u16, x: u8) {
-    if cfg!(feature = "debug") {
-      match addr {
-        0xFF01 => println!("{:x} {}", x, ASCII[x as usize]),
-        0xFF50 => println!("bingo"),
-        _ => {},
-      }
-    }
-
-    self.ram[addr as usize] = x;
-  }
-
-  pub fn write_16le(&mut self, addr: u16, x: u16) {
-    let (h, l) = from_u16(x);
-    self.ram[addr as usize] = l;
-    self.ram[(addr.wrapping_add(1)) as usize] = h;
-  }
-
-  pub fn tile_pattern_table(&self) -> &[u8] {
-    &self.ram[0x8000..0x9000]
+  pub fn write_16le(&mut self, addr: u16, ww: u16) {
+    self.bus.write_16le(addr, ww);
   }
 
   // Run the next instruction
@@ -757,20 +680,6 @@ impl Cpu {
       0xFF => self.op_rst(0x38),
 
       _ => unreachable!(),
-    }
-  }
-
-  pub fn run_for(&mut self, cycles: u64) {
-    let mut c : u64 = 0;
-
-    while c < cycles {
-      c += self.step() as u64;
-    }
-  }
-
-  pub fn run(&mut self) {
-    loop {
-      self.step();
     }
   }
 }
