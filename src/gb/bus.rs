@@ -1,3 +1,4 @@
+use gb::lcd::LCD;
 use gb::utils::{from_u16, to_u16};
 
 pub trait Bus {
@@ -11,12 +12,14 @@ const RAM_SIZE : usize = 0x10000;
 
 pub struct Hardware {
   pub ram: [u8; RAM_SIZE],
+  lcd: LCD,
 }
 
 impl Hardware {
   pub fn new() -> Hardware {
     Hardware {
       ram: [0; RAM_SIZE],
+      lcd: LCD::new(),
     }
   }
 }
@@ -69,8 +72,10 @@ const ASCII : [char; 256] = [
 
 impl Bus for Hardware {
   fn read(&self, addr: u16) -> u8 {
-    self.ram[addr as usize]
-
+    match addr {
+      0xFF47 => self.lcd.read(addr),
+      _ => self.ram[addr as usize]
+    }
   }
 
   fn write(&mut self, addr: u16, w: u8) {
@@ -82,7 +87,10 @@ impl Bus for Hardware {
       }
     }
 
-    self.ram[addr as usize] = w;
+    match addr {
+      0xFF47 => self.lcd.write(addr, w),
+      _ => self.ram[addr as usize] = w
+    }
   }
 
   fn read_16le(&self, addr: u16) -> u16 {
