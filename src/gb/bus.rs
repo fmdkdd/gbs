@@ -86,14 +86,14 @@ impl Bus for Hardware {
   }
 
   fn read_16le(&self, addr: u16) -> u16 {
-    let l = self.ram[addr as usize];
-    let h = self.ram[(addr.wrapping_add(1)) as usize];
+    let l = self.read(addr);
+    let h = self.read((addr.wrapping_add(1)));
     to_u16(h, l)
   }
 
   fn write_16le(&mut self, addr: u16, ww: u16) {
     let (h, l) = from_u16(ww);
-    self.ram[addr as usize] = l;
-    self.ram[(addr.wrapping_add(1)) as usize] = h;
+    self.write(addr, l);
+    self.write(addr.wrapping_add(1), h);
   }
 }
