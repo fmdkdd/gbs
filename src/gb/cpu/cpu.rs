@@ -2,7 +2,7 @@ use gb::cpu::registers::{Registers, R8, R16, FLAG};
 use gb::cpu::registers::R8::*;
 use gb::cpu::registers::R16::*;
 use gb::bus::Bus;
-use gb::utils::to_u16;
+use gb::utils::{from_u16, to_u16};
 
 pub struct Cpu<B: Bus> {
   r: Registers,
@@ -60,11 +60,15 @@ impl<B> Cpu<B> where B: Bus {
   }
 
   pub fn read_16le(&self, addr: u16) -> u16 {
-    self.bus.read_16le(addr)
+    let l = self.read(addr);
+    let h = self.read((addr.wrapping_add(1)));
+    to_u16(h, l)
   }
 
   pub fn write_16le(&mut self, addr: u16, ww: u16) {
-    self.bus.write_16le(addr, ww);
+    let (h, l) = from_u16(ww);
+    self.write(addr, l);
+    self.write(addr.wrapping_add(1), h);
   }
 
   // Run the next instruction

@@ -4,8 +4,6 @@ use gb::utils::{from_u16, to_u16};
 pub trait Bus {
   fn read(&self, addr: u16) -> u8;
   fn write(&mut self, addr: u16, w: u8);
-  fn read_16le(&self, addr: u16) -> u16;
-  fn write_16le(&mut self, addr: u16, ww: u16);
 }
 
 const RAM_SIZE : usize = 0x10000;
@@ -91,17 +89,5 @@ impl Bus for Hardware {
       0xFF47 => self.lcd.write(addr, w),
       _ => self.ram[addr as usize] = w
     }
-  }
-
-  fn read_16le(&self, addr: u16) -> u16 {
-    let l = self.read(addr);
-    let h = self.read((addr.wrapping_add(1)));
-    to_u16(h, l)
-  }
-
-  fn write_16le(&mut self, addr: u16, ww: u16) {
-    let (h, l) = from_u16(ww);
-    self.write(addr, l);
-    self.write(addr.wrapping_add(1), h);
   }
 }
