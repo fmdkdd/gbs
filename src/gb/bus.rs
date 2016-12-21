@@ -71,6 +71,10 @@ const ASCII : [char; 256] = [
 impl Bus for Hardware {
   fn read(&self, addr: u16) -> u8 {
     match addr {
+      0xFF40 => self.lcd.read(addr),
+      0xFF42 => self.lcd.read(addr),
+      0xFF43 => self.lcd.read(addr),
+      0xFF44 => self.lcd.read(addr),
       0xFF47 => self.lcd.read(addr),
       _ => self.ram[addr as usize]
     }
@@ -86,6 +90,10 @@ impl Bus for Hardware {
     }
 
     match addr {
+      0xFF40 => self.lcd.write(addr, w),
+      0xFF42 => self.lcd.write(addr, w),
+      0xFF43 => self.lcd.write(addr, w),
+      0xFF44 => self.lcd.write(addr, w),
       0xFF47 => self.lcd.write(addr, w),
       _ => self.ram[addr as usize] = w
     }
