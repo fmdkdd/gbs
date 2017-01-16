@@ -8,3 +8,4 @@ debug = []
 
 [dependencies]
 glium = "0.15"
+sdl2 = "0.27"
