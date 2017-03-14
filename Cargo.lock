@@ -3,6 +3,7 @@ name = "gbs"
 version = "0.1.0"
 dependencies = [
  "glium 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hound 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2 0.27.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -218,6 +219,11 @@ dependencies = [
  "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "x11-dl 2.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "hound"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "itoa"
@@ -599,6 +605,7 @@ dependencies = [
 "checksum gleam 0.2.24 (registry+https://github.com/rust-lang/crates.io-index)" = "b04d6c8a1df841e48dfe99ed67829c9d1d17b1bb3e44c5f3283992010e20359b"
 "checksum glium 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)" = "30bfe6ac8600d25f7f2a1e3203566b156d66e7c2f358f6bb79b5419ddaecd671"
 "checksum glutin 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "06786fae66e7aa8464b3d8d3fb7a7c470f89d62ae511f9613ea7fbbeef61d680"
+"checksum hound 3.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cbcce089471b4c7f51201675a3b85d932cffa2c6d3b913d35d20f3c7f3994530"
 "checksum itoa 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ae3088ea4baeceb0284ee9eea42f591226e6beaecf65373e41b38d95a1b8e7a1"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum khronos_api 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "09c9d3760673c427d46f91a0350f0a84a52e6bc5a84adf26dc610b6c52436630"
