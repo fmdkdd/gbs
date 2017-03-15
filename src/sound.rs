@@ -56,8 +56,6 @@ pub struct Square1 {
   freq: u16,
   length: u16,
 
-  time: f32,
-
   // shift_clock_freq: u8,
   // shift_register_width: ShiftRegisterWidth,
   // freq_dividing_ratio: u8,
@@ -70,7 +68,6 @@ impl Square1 {
     Square1 {
       freq: 0,
       length: 0,
-      time: 0.0,
     }
   }
 
@@ -80,12 +77,18 @@ impl Square1 {
   }
 
   pub fn set_length(&mut self, length: u16) {
-    self.length = length;
+    self.length = ((length as f32) / 1000.0 * SAMPLE_RATE) as u16;
   }
 
   pub fn get_sample(&mut self) -> f32 {
-    let sample = fourier_square(self.time, self.freq as f32, 0.5);
-    self.time += 1.0;
+    let sample;
+
+    if self.length > 0 {
+      sample = fourier_square(self.length as f32, self.freq as f32, 0.5);
+      self.length -= 1;
+    } else {
+      sample = 0.0;
+    }
     sample
   }
 
@@ -97,18 +100,6 @@ impl Square1 {
 
     for _ in 0..len {
       samples.push(self.get_sample());
-    }
-
-    samples
-  }
-
-  pub fn run(&mut self, ms: u32) -> Vec<f32> {
-    let mut elapsed = 0;
-    let mut samples = Vec::new();
-
-    while elapsed < ms {
-      samples.append(&mut self.get_samples_for(20));
-      elapsed += 20; // MAGIC
     }
 
     samples
