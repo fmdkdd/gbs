@@ -8,12 +8,28 @@ fn main() {
   let mut sq1 = sound::Square1::new();
   let mut samples = Vec::new();
 
-  sq1.set_frequency(440);
-  sq1.set_length(500);
-  samples.append(&mut sq1.get_samples_for(1000));
-  sq1.set_frequency(880);
-  sq1.set_length(500);
-  samples.append(&mut sq1.get_samples_for(1000));
+  println!("First note");
+  sq1.set_frequency(440.0);
+  sq1.set_length(0.5);
+  sq1.set_volume_init(1.0, 1.0);
+  samples.append(&mut sq1.get_samples_for(1.0));
+  println!("Second note");
+  sq1.set_frequency(880.0);
+  sq1.set_length(0.5);
+  sq1.set_volume_init(1.0, 2.0);
+  samples.append(&mut sq1.get_samples_for(1.0));
+
+  println!("Vibrato");
+  sq1.set_length(1.0);
+  sq1.set_frequency(440.0);
+  sq1.set_volume_init(1.0, 10.0);
+  for i in 0..5u32 {
+    sq1.set_frequency(440.0 + 1.0);
+    samples.append(&mut sq1.get_samples_for(0.1));
+    sq1.set_frequency(440.0 - 1.0);
+    samples.append(&mut sq1.get_samples_for(0.1));
+  }
+
 
   // Write to WAV
   let spec = hound::WavSpec {
@@ -22,7 +38,7 @@ fn main() {
     bits_per_sample: 16,
     sample_format: hound::SampleFormat::Int,
   };
-  let max = std::i16::MAX as f32;
+  let max = std::i16::MAX as f64;
   let amp = 0.3;
   let mut writer = hound::WavWriter::create("out.wav", spec).unwrap();
   for s in samples {

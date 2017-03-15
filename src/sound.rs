@@ -1,4 +1,10 @@
-use std::f32;
+// Favor double precision over speed.  But can be changed here.
+type F = f64;
+use std::f64;
+const PI: F = f64::consts::PI;
+
+// 44.1KHz ought to be enough for everyone
+pub const SAMPLE_RATE: F = 44100.0;
 
 struct Counter {
   enabled: bool,
@@ -31,7 +37,7 @@ impl Counter {
   }
 }
 
-enum SweepDirection {
+enum Sweep {
   DECREASE, INCREASE
 }
 
@@ -39,95 +45,177 @@ enum ShiftRegisterWidth {
   W_15BITS, W_7BITS
 }
 
-// TODO: most of these are not 8 bit numbers
-pub struct Square1 {
-  // Sweep register
-  // sweep_period: u8,
-  // sweep_direction: SweepDirection,
-  // sweep_shift: u8,
-
-  // wave_pattern_duty: u8,
-  // length_load: u8,
-
-  // initial_volume: u8,
-  // volume_sweep_direction: SweepDirection,
-  // sweep_length: u8,
-
-  freq: u16,
-  length: u16,
-
-  // shift_clock_freq: u8,
-  // shift_register_width: ShiftRegisterWidth,
-  // freq_dividing_ratio: u8,
+trait Signal {
+  fn get_sample(&mut self, time: F) -> F;
 }
 
-pub const SAMPLE_RATE: f32 = 44100.0;
+pub struct Square1 {
+  wave: SquareWave,
+  length: Length,
+  volume: Volume,
+}
 
 impl Square1 {
   pub fn new() -> Self {
     Square1 {
-      freq: 0,
-      length: 0,
+      wave: SquareWave::new(),
+      length: Length { length: 0.0 },
+      volume: Volume::new(),
     }
   }
 
-  pub fn set_frequency(&mut self, freq: u16) {
-    // self.freq = (2048 - freq) * 4;
+  // Frequency, in Hz
+  pub fn set_frequency(&mut self, freq: F) {
+    self.wave.set_freq(freq);
+  }
+
+  // Length in seconds
+  pub fn set_length(&mut self, length: F) {
+    self.length.length = length;
+  }
+
+  pub fn set_pulse_width(&mut self, pulse_width: F) {
+    self.wave.pulse_width= pulse_width;
+  }
+
+  // Volume in [0,1]
+  // Period > 0
+  pub fn set_volume_init(&mut self, volume: F, period: F) {
+    self.volume.init_volume = (volume * 15.0) as u8;
+    self.volume.period = period;
+    self.volume.init();
+    self.volume.reload();
+  }
+
+  // Length in seconds
+  pub fn get_samples_for(&mut self, length: F) -> Vec<F> {
+    // How many samples do we need?
+    let len = length * SAMPLE_RATE;
+
+    (0..(len as u32))
+      .map(|s| self.get_sample((s as F) / SAMPLE_RATE))
+      .collect()
+  }
+}
+
+impl Signal for Square1 {
+  fn get_sample(&mut self, time: F) -> F {
+    self.wave.get_sample(time)
+      * self.length.get_sample(time)
+      * self.volume.get_sample(time)
+  }
+}
+
+struct SquareWave {
+  freq: F,
+  pulse_width: F,
+}
+
+impl SquareWave {
+  fn new() -> Self {
+    SquareWave {
+      freq: 0.0,
+      pulse_width: 0.5,
+    }
+  }
+
+  fn set_freq(&mut self, freq: F) {
     self.freq = freq;
   }
+}
 
-  pub fn set_length(&mut self, length: u16) {
-    self.length = ((length as f32) / 1000.0 * SAMPLE_RATE) as u16;
+impl Signal for SquareWave {
+  fn get_sample(&mut self, time: F) -> F {
+    fourier_square(time, self.freq, self.pulse_width)
   }
+}
 
-  pub fn get_sample(&mut self) -> f32 {
-    let sample;
+struct Length {
+  length: F,
+}
 
-    if self.length > 0 {
-      sample = fourier_square(self.length as f32, self.freq as f32, 0.5);
-      self.length -= 1;
+impl Signal for Length {
+  fn get_sample(&mut self, time: F) -> F {
+    if self.length > 0.0 {
+      self.length -= 1.0 / SAMPLE_RATE;
+      1.0
     } else {
-      sample = 0.0;
+      0.0
     }
-    sample
+  }
+}
+
+struct Volume {
+  init_volume: u8,
+  sweep: Sweep,
+  period: F,
+
+  // Internal
+  volume: u8,
+  counter: F,
+}
+
+impl Volume {
+  fn new() -> Self {
+    Volume {
+      init_volume: 15,
+      sweep: Sweep::DECREASE,
+      period: 1.0,
+      volume: 15,
+      counter: 0.0,
+    }
   }
 
-  pub fn get_samples_for(&mut self, ms: u32) -> Vec<f32> {
-    let mut samples = Vec::new();
+  fn init(&mut self) {
+    self.volume = self.init_volume;
+  }
 
-    // How many samples do we need?
-    let len = ((ms as f32) / 1000.0 * SAMPLE_RATE) as u32;
+  fn reload(&mut self) {
+    self.counter = self.period / 64.0;
+  }
+}
 
-    for _ in 0..len {
-      samples.push(self.get_sample());
+impl Signal for Volume {
+  fn get_sample(&mut self, time: F) -> F {
+    if self.counter > 0.0 {
+      self.counter -= 1.0 / SAMPLE_RATE;
+      if self.counter <= 0.0 {
+        match self.sweep {
+          Sweep::DECREASE => self.volume -= 1,
+          Sweep::INCREASE => self.volume += 1,
+        }
+        self.volume &= 0xF;
+        if self.volume > 0 {
+          self.reload()
+        }
+      }
     }
-
-    samples
+    (self.volume as F / 15.0)
   }
 }
 
 // Sawtooth made from subtracting even harmonics from odd harmonics in the
-// Fourier series
-fn fourier_sawtooth(time: f32, rate: f32, phase_shift: f32) -> f32 {
-  // How many periods per sample?
-  let ratio = rate / SAMPLE_RATE;
-
-  // Sum the Fourier series until the Nyquist barrier
+// Fourier series.
+// freq in Hz
+// phase_shift in [0,1]
+fn fourier_sawtooth(time: F, freq: F, phase_shift: F) -> F {
+  // Sum the Fourier series
   (1u32..)
-    .map(|h| h as f32)
-  // Limit to frequencies below Nyquist
-    .take_while(|h| (h * rate) < (SAMPLE_RATE / 2.0))
+    .map(|h| h as F)
+    // Limit to frequencies below Nyquist barrier
+    .take_while(|h| (h * freq) < (SAMPLE_RATE / 2.0))
     .map(|h| {
-      let t = ratio * time + phase_shift;
-      let s = f32::sin(2.0 * f32::consts::PI * h * t) / h;
+      let s = F::sin(2.0 * PI * h * (freq * time + phase_shift)) / h;
       if (h as u32) % 2 == 0 { -s }
       else { s }
     }).sum()
 }
 
 // Square wave from subtracting two sawtooth waves
-fn fourier_square(time: f32, rate: f32, pulse_width: f32) -> f32 {
-  let saw1 = fourier_sawtooth(time, rate, 0.0);
-  let saw2 = fourier_sawtooth(time, rate, pulse_width);
+// freq in Hz
+// pulse_width in [0,1]
+fn fourier_square(time: F, freq: F, pulse_width: F) -> F {
+  let saw1 = fourier_sawtooth(time, freq, 0.0);
+  let saw2 = fourier_sawtooth(time, freq, pulse_width);
   (saw2 - saw1) / 2.0
 }
