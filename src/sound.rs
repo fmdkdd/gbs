@@ -56,16 +56,21 @@ pub struct Square1 {
   freq: u16,
   length: u16,
 
+  time: f32,
+
   // shift_clock_freq: u8,
   // shift_register_width: ShiftRegisterWidth,
   // freq_dividing_ratio: u8,
 }
+
+const SAMPLE_RATE: f32 = 44100.0;
 
 impl Square1 {
   pub fn new() -> Self {
     Square1 {
       freq: 0,
       length: 0,
+      time: 0.0,
     }
   }
 
@@ -78,8 +83,23 @@ impl Square1 {
     self.length = length;
   }
 
-  pub fn clock(&mut self) -> Vec<f32> {
-    fourier_square(440.0, 0.020, 44100.0, 0.5)
+  pub fn get_sample(&mut self) -> f32 {
+    let sample = fourier_square(self.time, self.freq as f32, 0.5);
+    self.time += 1.0;
+    sample
+  }
+
+  pub fn get_samples_for(&mut self, ms: u32) -> Vec<f32> {
+    let mut samples = Vec::new();
+
+    // How many samples do we need?
+    let len = ((ms as f32) / 1000.0 * SAMPLE_RATE) as u32;
+
+    for _ in 0..len {
+      samples.push(self.get_sample());
+    }
+
+    samples
   }
 
   pub fn run(&mut self, ms: u32) -> Vec<f32> {
@@ -87,7 +107,7 @@ impl Square1 {
     let mut samples = Vec::new();
 
     while elapsed < ms {
-      samples.append(&mut self.clock());
+      samples.append(&mut self.get_samples_for(20));
       elapsed += 20; // MAGIC
     }
 
@@ -95,42 +115,28 @@ impl Square1 {
   }
 }
 
-
 // Sawtooth made from subtracting even harmonics from odd harmonics in the
 // Fourier series
-fn fourier_sawtooth(rate: f32, length: f32, sample_rate: f32, phase_shift: f32) -> Vec<f32> {
-  // How many samples do we need?
-  let samples = length * sample_rate;
-
+fn fourier_sawtooth(time: f32, rate: f32, phase_shift: f32) -> f32 {
   // How many periods per sample?
-  let ratio = rate / sample_rate;
+  let ratio = rate / SAMPLE_RATE;
 
-  (0..(samples as u32)).map(|s| {
-    // Sum the Fourier series until the Nyquist barrier
-    (1u32..)
-      .map(|h| h as f32)
-    // Limit to frequencies below Nyquist
-      .take_while(|h| (h * rate) < (sample_rate / 2.0))
-      .map(|h| {
-        // t in [0,1] is a time index into a wave period
-        let t = ratio * (s as f32);
-        let s = f32::sin(2.0 * f32::consts::PI * h * (t + phase_shift)) / h;
-        if (h as u32) % 2 == 0 { -s }
-        else { s }
-      }).sum()
-  }).collect()
+  // Sum the Fourier series until the Nyquist barrier
+  (1u32..)
+    .map(|h| h as f32)
+  // Limit to frequencies below Nyquist
+    .take_while(|h| (h * rate) < (SAMPLE_RATE / 2.0))
+    .map(|h| {
+      let t = ratio * time + phase_shift;
+      let s = f32::sin(2.0 * f32::consts::PI * h * t) / h;
+      if (h as u32) % 2 == 0 { -s }
+      else { s }
+    }).sum()
 }
 
 // Square wave from subtracting two sawtooth waves
-fn fourier_square(rate: f32, length: f32, sample_rate: f32, pulse_width: f32) -> Vec<f32> {
-  let saw = fourier_sawtooth(rate, length, sample_rate, 0.0);
-
-  // How many samples to offset?  For a 50/50 square, we need to offset by half
-  // a period.
-  let offset = (sample_rate / rate * pulse_width) as usize;
-
-  // Another way to do that is to create two sawtooth waves and use the
-  // phase_shift parameter
-
-  saw.iter().zip(saw.iter().skip(offset)).map(|(a,b)| a - b).collect()
+fn fourier_square(time: f32, rate: f32, pulse_width: f32) -> f32 {
+  let saw1 = fourier_sawtooth(time, rate, 0.0);
+  let saw2 = fourier_sawtooth(time, rate, pulse_width);
+  saw2 - saw1
 }

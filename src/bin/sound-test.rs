@@ -8,10 +8,13 @@ const SAMPLE_RATE: u32 = 44100;
 fn main() {
   // Emulate
   let mut sq1 = sound::Square1::new();
+  let mut samples = Vec::new();
 
   sq1.set_frequency(440);
   sq1.set_length(100);
-  let samples = sq1.run(1000);
+  samples.append(&mut sq1.get_samples_for(500));
+  sq1.set_frequency(880);
+  samples.append(&mut sq1.get_samples_for(500));
 
   // Write to WAV
   let spec = hound::WavSpec {
