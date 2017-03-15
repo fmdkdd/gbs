@@ -129,5 +129,5 @@ fn fourier_sawtooth(time: f32, rate: f32, phase_shift: f32) -> f32 {
 fn fourier_square(time: f32, rate: f32, pulse_width: f32) -> f32 {
   let saw1 = fourier_sawtooth(time, rate, 0.0);
   let saw2 = fourier_sawtooth(time, rate, pulse_width);
-  saw2 - saw1
+  (saw2 - saw1) / 2.0
 }
