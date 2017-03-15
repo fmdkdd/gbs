@@ -63,7 +63,7 @@ pub struct Square1 {
   // freq_dividing_ratio: u8,
 }
 
-const SAMPLE_RATE: f32 = 44100.0;
+pub const SAMPLE_RATE: f32 = 44100.0;
 
 impl Square1 {
   pub fn new() -> Self {
