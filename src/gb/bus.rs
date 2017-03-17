@@ -71,6 +71,7 @@ const ASCII : [char; 256] = [
 impl Bus for Hardware {
   fn read(&self, addr: u16) -> u8 {
     match addr {
+      0xE000...0xFDFF => self.read(addr - 0x2000),
       0xFF40 => self.lcd.read(addr),
       0xFF42 => self.lcd.read(addr),
       0xFF43 => self.lcd.read(addr),
