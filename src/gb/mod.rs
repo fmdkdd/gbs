@@ -34,6 +34,10 @@ impl GB {
     }
   }
 
+  pub fn reset(&mut self) {
+    self.cpu.clear_registers();
+  }
+
   pub fn run(&mut self) {
     loop {
       self.cpu.step();

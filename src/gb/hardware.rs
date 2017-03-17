@@ -1,6 +1,5 @@
 use gb::lcd::LCD;
 use gb::apu::APU;
-use gb::utils::{from_u16, to_u16};
 
 const RAM_SIZE : usize = 0x10000;
 
@@ -54,8 +53,12 @@ impl Hardware {
     }
   }
 
-  pub fn apu_step(&mut self) -> u8 {
-    self.apu.step()
+  pub fn apu_step(&mut self) {
+    self.apu.step();
+  }
+
+  pub fn apu_output(&self) -> f32 {
+    self.apu.output()
   }
 }
 
