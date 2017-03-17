@@ -29,13 +29,19 @@ impl<B> Cpu<B> where B: Bus {
   pub fn f_clear(&mut self, f: FLAG) { self.r.f_clear(f); }
   pub fn f_setb(&mut self, f: FLAG, b: bool) { self.r.f_setb(f, b); }
 
-  pub fn reset(&mut self) {
+  pub fn clear_registers(&mut self) {
     self.rr_set(AF, 0);
     self.rr_set(BC, 0);
     self.rr_set(DE, 0);
     self.rr_set(HL, 0);
     self.rr_set(PC, 0);
     self.rr_set(SP, 0);
+  }
+
+  pub fn clear_ram(&mut self) {
+    for addr in 0x8000..0xE000 {
+      self.write(addr, 0);
+    }
   }
 
   pub fn read_pc(&mut self) -> u8 {

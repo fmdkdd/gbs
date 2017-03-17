@@ -26,10 +26,6 @@ impl GB {
     }
   }
 
-  pub fn reset(&mut self) {
-    self.cpu.reset();
-  }
-
   pub fn run_for(&mut self, cycles: u64) {
     let mut c : u64 = 0;
 
