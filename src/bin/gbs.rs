@@ -21,23 +21,37 @@ fn main() {
 
   println!("version: {}", gbs.version);
   println!("n_songs: {}", gbs.n_songs);
-  // println!("first_song: {}", gbs.first_song);
+  println!("first_song: {}", gbs.first_song);
   println!("title: {}", gbs.title);
   println!("author: {}", gbs.author);
   println!("copyright: {}", gbs.copyright);
   println!("rom len: {:x}", gbs.rom.len());
-
 
   let mut gb = GB::new();
   // Load
   gb.load_rom(&gbs.rom, gbs.load_addr);
 
   // Init
-  gb.reset();
+  gb.cpu.clear_registers();
+  gb.cpu.clear_ram();
   gb.cpu.rr_set(R16::SP, gbs.sp);
   gb.cpu.r_set(R8::A, gbs.first_song);
   gb.cpu.rr_set(R16::PC, gbs.init_addr);
+  // Run INIT until RET
+  while gb.cpu.read(gb.cpu.rr(R16::PC)) != 0xC9 {
+    gb.cpu.step();
+  }
+  // Execute the RET
+  gb.cpu.step();
 
   // Play
-  gb.run_for(100);
+  gb.cpu.rr_set(R16::PC, gbs.play_addr);
+  // FIXME: should run until RET, but the code can in fact contain CALL and
+  // nested RET, so should run until the top RET (check SP?)
+  // while gb.cpu.read(gb.cpu.rr(R16::PC)) != 0xC9 {
+  //   gb.cpu.step();
+  // }
+  // Execute the RET
+  // gb.cpu.step();
+  gb.run();
 }
