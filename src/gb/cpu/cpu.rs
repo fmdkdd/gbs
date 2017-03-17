@@ -71,7 +71,7 @@ impl<B> Cpu<B> where B: Bus {
     self.write(addr.wrapping_add(1), h);
   }
 
-  // Run the next instruction
+  // Run the next instruction and return the number of CPU cycles it took
   pub fn step(&mut self) -> u8 {
     let opcode = self.read_pc();
 
@@ -212,14 +212,14 @@ impl<B> Cpu<B> where B: Bus {
       0x66 => self.op_ld_r_rr(H, HL),
       0x67 => self.op_ld_r_r(H, A),
 
-      0x68 => self.op_ld_r_r(H, B),
-      0x69 => self.op_ld_r_r(H, C),
-      0x6A => self.op_ld_r_r(H, D),
-      0x6B => self.op_ld_r_r(H, E),
-      0x6C => self.op_ld_r_r(H, H),
-      0x6D => self.op_ld_r_r(H, L),
-      0x6E => self.op_ld_r_rr(H, HL),
-      0x6F => self.op_ld_r_r(H, A),
+      0x68 => self.op_ld_r_r(L, B),
+      0x69 => self.op_ld_r_r(L, C),
+      0x6A => self.op_ld_r_r(L, D),
+      0x6B => self.op_ld_r_r(L, E),
+      0x6C => self.op_ld_r_r(L, H),
+      0x6D => self.op_ld_r_r(L, L),
+      0x6E => self.op_ld_r_rr(L, HL),
+      0x6F => self.op_ld_r_r(L, A),
 
       0x70 => self.op_ld_hl_r(B),
       0x71 => self.op_ld_hl_r(C),
@@ -819,23 +819,23 @@ impl<B> Cpu<B> where B: Bus {
       0x66 => format!("LD H,(HL)"),
       0x67 => format!("LD H,A"),
 
-      0x68 => format!("LD H,B"),
-      0x69 => format!("LD H,C"),
-      0x6A => format!("LD H,D"),
-      0x6B => format!("LD H,E"),
-      0x6C => format!("LD H,H"),
-      0x6D => format!("LD H,L"),
-      0x6E => format!("LD H,(HL)"),
-      0x6F => format!("LD H,A"),
+      0x68 => format!("LD L,B"),
+      0x69 => format!("LD L,C"),
+      0x6A => format!("LD L,D"),
+      0x6B => format!("LD L,E"),
+      0x6C => format!("LD L,H"),
+      0x6D => format!("LD L,L"),
+      0x6E => format!("LD L,(HL)"),
+      0x6F => format!("LD L,A"),
 
-      0x70 => format!("LD H,B"),
-      0x71 => format!("LD H,C"),
-      0x72 => format!("LD H,D"),
-      0x73 => format!("LD H,E"),
-      0x74 => format!("LD H,H"),
-      0x75 => format!("LD H,L"),
+      0x70 => format!("LD (HL),B"),
+      0x71 => format!("LD (HL),C"),
+      0x72 => format!("LD (HL),D"),
+      0x73 => format!("LD (HL),E"),
+      0x74 => format!("LD (HL),H"),
+      0x75 => format!("LD (HL),L"),
       0x76 => format!("HALT"),
-      0x77 => format!("LD H,A"),
+      0x77 => format!("LD (HL),A"),
 
       0x78 => format!("LD A,B"),
       0x79 => format!("LD A,C"),
