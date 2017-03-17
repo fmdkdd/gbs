@@ -19,18 +19,10 @@ impl GB {
     }
   }
 
-  pub fn load_rom(&mut self, rom: &Vec<u8>, offset: u16) {
-    // TODO: maybe use an iterator here or a direct memcpy
-    // Copy ROM into RAM banks 0 and 1, stopping at 0x7fff, or when ROM is
-    // empty.
-    let mut ra = offset;
-    let ra_max = 0x8000;
-    let mut ro = 0;
-    let ro_max = rom.len();
-    while ro < ro_max && ra < ra_max {
-      self.cpu.write(ra, rom[ro]);
-      ra += 1;
-      ro += 1;
+  pub fn load_rom(&mut self, rom: &[u8], offset: u16) {
+    // Copy ROM into RAM at offset, stopping at 0x7fff, or when ROM is empty.
+    for (addr,idx) in (offset..0x8000).zip(0..rom.len()) {
+      self.cpu.write(addr, rom[idx]);
     }
   }
 
