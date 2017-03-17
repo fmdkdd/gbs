@@ -104,4 +104,9 @@ impl APU {
       _ => {}
     }
   }
+
+  // Return a sample in [0,15]
+  pub fn step(&mut self) -> u8 {
+    0
+  }
 }

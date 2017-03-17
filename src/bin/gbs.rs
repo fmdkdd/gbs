@@ -1,4 +1,5 @@
 extern crate gbs;
+extern crate hound;
 
 use std::env;
 
@@ -28,6 +29,9 @@ fn main() {
   println!("rom len: {:x}", gbs.rom.len());
 
   let mut gb = GB::new();
+
+  let mut samples = Vec::new();
+
   // Load
   gb.load_rom(&gbs.rom, gbs.load_addr);
 
@@ -40,9 +44,11 @@ fn main() {
   // Run INIT until RET
   while gb.cpu.read(gb.cpu.rr(R16::PC)) != 0xC9 {
     gb.cpu.step();
+    samples.push(gb.cpu.hardware.apu_step());
   }
   // Execute the RET
   gb.cpu.step();
+  samples.push(gb.cpu.hardware.apu_step());
 
   // Play
   gb.cpu.rr_set(R16::PC, gbs.play_addr);
@@ -53,5 +59,23 @@ fn main() {
   // }
   // Execute the RET
   // gb.cpu.step();
-  gb.run();
+  for _ in 0..20000 {
+    gb.cpu.step();
+    samples.push(gb.cpu.hardware.apu_step());
+  }
+
+  // Write to WAV
+  let spec = hound::WavSpec {
+    channels: 2,
+    sample_rate: 44100,
+    bits_per_sample: 16,
+    sample_format: hound::SampleFormat::Int,
+  };
+  let max = std::i16::MAX as f32;
+  let amp = 0.3;
+  let mut writer = hound::WavWriter::create("out.wav", spec).unwrap();
+  for s in samples {
+    let sample = ((s as f32) / 30.0 - 1.0) * amp;
+    writer.write_sample((sample * max) as i16).unwrap();
+  }
 }

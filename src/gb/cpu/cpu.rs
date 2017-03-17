@@ -1,21 +1,21 @@
 use gb::cpu::registers::{Registers, R8, R16, FLAG};
 use gb::cpu::registers::R8::*;
 use gb::cpu::registers::R16::*;
-use gb::bus::Bus;
+use gb::hardware::Hardware;
 use gb::utils::{from_u16, to_u16};
 
-pub struct Cpu<B: Bus> {
+pub struct Cpu {
   r: Registers,
   pub ime: u8,
-  pub bus: B,
+  pub hardware: Hardware,
 }
 
-impl<B> Cpu<B> where B: Bus {
-  pub fn new(bus: B) -> Cpu<B> {
+impl Cpu {
+  pub fn new(hardware: Hardware) -> Cpu {
     Cpu {
       r: Registers::new(),
       ime: 0,
-      bus: bus,
+      hardware: hardware,
     }
   }
 
@@ -58,11 +58,11 @@ impl<B> Cpu<B> where B: Bus {
   }
 
   pub fn read(&self, addr: u16) -> u8 {
-    self.bus.read(addr)
+    self.hardware.read(addr)
   }
 
   pub fn write(&mut self, addr: u16, w: u8) {
-    self.bus.write(addr, w);
+    self.hardware.write(addr, w);
   }
 
   pub fn read_16le(&self, addr: u16) -> u16 {

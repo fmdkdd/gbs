@@ -2,11 +2,6 @@ use gb::lcd::LCD;
 use gb::apu::APU;
 use gb::utils::{from_u16, to_u16};
 
-pub trait Bus {
-  fn read(&self, addr: u16) -> u8;
-  fn write(&mut self, addr: u16, w: u8);
-}
-
 const RAM_SIZE : usize = 0x10000;
 
 pub struct Hardware {
@@ -25,6 +20,46 @@ impl Hardware {
   }
 }
 
+impl Hardware {
+  pub fn read(&self, addr: u16) -> u8 {
+    match addr {
+      0xE000...0xFDFF => self.read(addr - 0x2000),
+      0xFF10...0xFF3F => self.apu.read(addr),
+      0xFF40 => self.lcd.read(addr),
+      0xFF42 => self.lcd.read(addr),
+      0xFF43 => self.lcd.read(addr),
+      0xFF44 => self.lcd.read(addr),
+      0xFF47 => self.lcd.read(addr),
+      _ => self.ram[addr as usize]
+    }
+  }
+
+  pub fn write(&mut self, addr: u16, w: u8) {
+    if cfg!(feature = "debug") {
+      match addr {
+        0xFF01 => println!("{:x} {}", w, ASCII[w as usize]),
+        0xFF50 => println!("bingo"),
+        _ => {},
+      }
+    }
+
+    match addr {
+      0xFF10...0xFF3F => self.apu.write(addr, w),
+      0xFF40 => self.lcd.write(addr, w),
+      0xFF42 => self.lcd.write(addr, w),
+      0xFF43 => self.lcd.write(addr, w),
+      0xFF44 => self.lcd.write(addr, w),
+      0xFF47 => self.lcd.write(addr, w),
+      _ => self.ram[addr as usize] = w
+    }
+  }
+
+  pub fn apu_step(&mut self) -> u8 {
+    self.apu.step()
+  }
+}
+
+// For running ROM tests
 const ASCII : [char; 256] = [
   ' ', ' ', ' ', ' ', ' ', ' ', ' ',
   ' ', ' ', ' ', ' ', ' ', ' ', ' ',
@@ -70,38 +105,3 @@ const ASCII : [char; 256] = [
 
   ' ', ' ', ' ', ' '
 ];
-
-impl Bus for Hardware {
-  fn read(&self, addr: u16) -> u8 {
-    match addr {
-      0xE000...0xFDFF => self.read(addr - 0x2000),
-      0xFF10...0xFF3F => self.apu.read(addr),
-      0xFF40 => self.lcd.read(addr),
-      0xFF42 => self.lcd.read(addr),
-      0xFF43 => self.lcd.read(addr),
-      0xFF44 => self.lcd.read(addr),
-      0xFF47 => self.lcd.read(addr),
-      _ => self.ram[addr as usize]
-    }
-  }
-
-  fn write(&mut self, addr: u16, w: u8) {
-    if cfg!(feature = "debug") {
-      match addr {
-        0xFF01 => println!("{:x} {}", w, ASCII[w as usize]),
-        0xFF50 => println!("bingo"),
-        _ => {},
-      }
-    }
-
-    match addr {
-      0xFF10...0xFF3F => self.apu.write(addr, w),
-      0xFF40 => self.lcd.write(addr, w),
-      0xFF42 => self.lcd.write(addr, w),
-      0xFF43 => self.lcd.write(addr, w),
-      0xFF44 => self.lcd.write(addr, w),
-      0xFF47 => self.lcd.write(addr, w),
-      _ => self.ram[addr as usize] = w
-    }
-  }
-}
