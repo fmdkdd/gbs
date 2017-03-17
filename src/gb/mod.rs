@@ -1,5 +1,6 @@
 pub mod cpu;
 pub mod lcd;
+pub mod apu;
 pub mod bus;
 
 mod utils;
