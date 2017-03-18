@@ -150,11 +150,13 @@ impl APU {
       },
 
       0xFF13 => {
-        self.pulse1.frequency |= w as u16;
+        self.pulse1.frequency = (self.pulse1.frequency & 0x0700)
+          | w as u16;
       },
 
       0xFF14 => {
-        self.pulse1.frequency |= ((w & 0x7) as u16) << 8;
+        self.pulse1.frequency = (self.pulse1.frequency & 0xFF)
+          | ((w & 0x7) as u16) << 8;
         self.pulse1.enabled = (w & 0x40) > 0;
 
         if w & 0x80 > 0 {
