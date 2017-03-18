@@ -58,8 +58,7 @@ impl Pulse {
     if self.length_counter == 0 {
       self.length_counter = 64;
     }
-    self.period = 2048 - self.frequency;
-    writeln!(&mut ::std::io::stderr(), "TRIGGER").unwrap();
+    self.period = (2048 - self.frequency) * 4;
   }
 
   fn clock(&mut self) {
@@ -79,7 +78,7 @@ impl Pulse {
     if self.period > 0 {
       self.period -= 1;
     } else {
-      self.period = 2048 - self.frequency;
+      self.period = (2048 - self.frequency) * 4;
       self.duty_idx = (self.duty_idx + 1) % 8;
     }
   }
