@@ -81,6 +81,15 @@ impl Cpu {
     self.write(addr.wrapping_add(1), h);
   }
 
+  // Call subroutine at addr.  Needed by GBS player.
+  pub fn call(&mut self, addr: u16) {
+    let pc = self.rr(PC);
+    let new_sp = self.rr(SP).wrapping_sub(2);
+    self.rr_set(SP, new_sp);
+    self.write_16le(new_sp, pc);
+    self.rr_set(PC, addr);
+  }
+
   // Run the next instruction and return the number of CPU cycles it took
   pub fn step(&mut self) -> u8 {
     let opcode = self.read_pc();
