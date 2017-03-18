@@ -90,16 +90,24 @@ impl Cpu {
     self.rr_set(PC, addr);
   }
 
+  pub fn disassemble(&self) {
+    let opcode = self.read(self.rr(PC));
+    let arg = self.read(self.rr(PC).wrapping_add(1));
+    // println!("{:04x} {}\tAF:{:04x} BC:{:04x} DE:{:04x} HL:{:04x} SP:{:04x}",
+    //          self.rr(PC) - 1, self.decode(opcode), self.rr(AF),
+    //          self.rr(BC), self.rr(DE), self.rr(HL), self.rr(SP));
+    println!("{:04x} {:02x} {:02x} AF:{:04x} BC:{:04x} DE:{:04x} HL:{:04x} SP:{:04x}",
+             self.rr(PC), opcode, arg, self.rr(AF),
+             self.rr(BC), self.rr(DE), self.rr(HL), self.rr(SP));
+  }
+
   // Run the next instruction and return the number of CPU cycles it took
   pub fn step(&mut self) -> u8 {
-    let opcode = self.read_pc();
-
     if cfg!(feature = "debug") {
-      println!("{:04x} {}\tAF:{:04x} BC:{:04x} DE:{:04x} HL:{:04x} SP:{:04x}",
-               self.rr(PC) - 1, self.decode(opcode), self.rr(AF),
-               self.rr(BC), self.rr(DE), self.rr(HL), self.rr(SP));
+      self.disassemble();
     }
 
+    let opcode = self.read_pc();
     match opcode {
       // Following the table at
       // http://www.pastraiser.com/cpu/gameboy/gameboy_opcodes.html
