@@ -18,6 +18,8 @@ fn main() {
   println!("init_addr: {:x}", gbs.init_addr);
   println!("play_addr: {:x}", gbs.play_addr);
   println!("sp: {:x}", gbs.sp);
+  println!("timer mod: {:x}", gbs.timer_mod);
+  println!("timer control: {:x}", gbs.timer_ctrl);
 
   println!("version: {}", gbs.version);
   println!("n_songs: {}", gbs.n_songs);
@@ -63,23 +65,37 @@ fn main() {
   }
 
   // Play
-  gb.cpu.call(gbs.play_addr);
-  let mut elapsed = 0;
-  while elapsed < 4194304 {
-    let cycles = gb.cpu.step();
-    for _ in 0..cycles {
+  let mut elapsed = GB_FREQ * 10;
+  while elapsed > 0 {
+    // Emulate from play_addr at 60Hz
+    let mut frame_period = 70224u32;
+    gb.cpu.call(gbs.play_addr);
+
+    // Run until PLAY has finished
+    while gb.cpu.rr(R16::PC) != idle_addr {
+      let cycles = gb.cpu.step();
+      for _ in 0..cycles {
+        gb.cpu.hardware.apu_step();
+
+        // Downsample
+        if elapsed % 95 == 0 {
+          writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
+        }
+        elapsed -= 1;
+      }
+      frame_period -= cycles as u32;
+    }
+
+    // PLAY has finished for this frame, but we still need to run the APU until
+    // the next frame
+    for _ in 0..frame_period {
       gb.cpu.hardware.apu_step();
 
       // Downsample
       if elapsed % 95 == 0 {
         writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
       }
-    }
-    elapsed += cycles as u64;
-
-    // Loop track?
-    if gb.cpu.rr(R16::PC) == idle_addr {
-      gb.cpu.call(gbs.play_addr);
+      elapsed -= 1;
     }
   }
 }
