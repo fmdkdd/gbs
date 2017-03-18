@@ -367,20 +367,20 @@ impl Cpu {
 
   pub fn op_or_r(&mut self, r: R8) -> u8 {
     let x = self.r(r);
-    self._xor(x);
+    self._or(x);
     4
   }
 
   pub fn op_or_n(&mut self) -> u8 {
     let x = self.read_pc();
-    self._xor(x);
+    self._or(x);
     8
   }
 
   pub fn op_or_hl(&mut self) -> u8 {
     let addr = self.rr(HL);
     let x = self.read(addr);
-    self._xor(x);
+    self._or(x);
     8
   }
 
