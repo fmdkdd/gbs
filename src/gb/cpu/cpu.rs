@@ -8,6 +8,9 @@ pub struct Cpu {
   r: Registers,
   pub ime: u8,
   pub hardware: Hardware,
+
+  // Used by GBS player, 0 otherwise
+  pub rst_offset: u16,
 }
 
 impl Cpu {
@@ -15,6 +18,7 @@ impl Cpu {
     Cpu {
       r: Registers::new(),
       ime: 0,
+      rst_offset: 0,
       hardware: hardware,
     }
   }

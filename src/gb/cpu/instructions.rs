@@ -936,7 +936,8 @@ impl Cpu {
     let pc = self.rr(PC);
     self.rr_set(SP, sp);
     self.write_16le(sp, pc);
-    self.rr_set(PC, n as u16);
+    let addr = self.rst_offset + (n as u16);
+    self.rr_set(PC, addr);
     16
   }
 
