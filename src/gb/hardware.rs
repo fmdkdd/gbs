@@ -43,6 +43,7 @@ impl Hardware {
     }
 
     match addr {
+      0xE000...0xFDFF => self.write(addr - 0x2000, w),
       0xFF10...0xFF3F => self.apu.write(addr, w),
       0xFF40 => self.lcd.write(addr, w),
       0xFF42 => self.lcd.write(addr, w),
