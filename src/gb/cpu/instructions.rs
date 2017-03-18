@@ -934,6 +934,7 @@ impl Cpu {
   pub fn op_rst(&mut self, n: u8) -> u8 {
     let sp = self.rr(SP).wrapping_sub(2);
     let pc = self.rr(PC);
+    self.rr_set(SP, sp);
     self.write_16le(sp, pc);
     self.rr_set(PC, n as u16);
     16
