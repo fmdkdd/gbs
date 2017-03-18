@@ -40,39 +40,31 @@ fn main() {
   let max = 0.3 * (std::i16::MAX as f32);
   let mut writer = hound::WavWriter::create("out.wav", spec).unwrap();
 
+  let idle_addr = 0xF00D;
+  gb.cpu.rst_offset = gbs.load_addr;
+
   // Load
   gb.load_rom(&gbs.rom, gbs.load_addr);
 
   // Init
   gb.cpu.clear_registers();
   gb.cpu.clear_ram();
+
+  gb.cpu.write(idle_addr, 0xFF);
+
   gb.cpu.rr_set(R16::SP, gbs.sp);
-  gb.cpu.r_set(R8::A, gbs.first_song);
-  gb.cpu.rr_set(R16::PC, gbs.init_addr);
-  // Run INIT until RET
-  while gb.cpu.read(gb.cpu.rr(R16::PC)) != 0xC9 {
+  gb.cpu.r_set(R8::A, 0);
+  gb.cpu.rr_set(R16::PC, idle_addr);
+  gb.cpu.call(gbs.init_addr);
+  // Run the INIT subroutine
+  while gb.cpu.rr(R16::PC) != idle_addr {
     let cycles = gb.cpu.step();
-    for _ in 0..cycles {
-      gb.cpu.hardware.apu_step();
-      writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
-    }
   }
-  // Execute the RET
-  let cycles = gb.cpu.step();
-  for _ in 0..cycles {
-    gb.cpu.hardware.apu_step();
-    writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
-  }
+  // Run the instruction at idle_addr for debug log
+  gb.cpu.step();
 
   // Play
   gb.cpu.rr_set(R16::PC, gbs.play_addr);
-  // FIXME: should run until RET, but the code can in fact contain CALL and
-  // nested RET, so should run until the top RET (check SP?)
-  // while gb.cpu.read(gb.cpu.rr(R16::PC)) != 0xC9 {
-  //   gb.cpu.step();
-  // }
-  // Execute the RET
-  // gb.cpu.step();
   let mut elapsed = 0;
   while elapsed < 4194304 {
     let cycles = gb.cpu.step();
