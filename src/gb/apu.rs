@@ -28,13 +28,36 @@ impl Duty {
   }
 }
 
+enum Sweep {
+  Decrease,
+  Increase,
+}
+
+impl Sweep {
+  fn from_u8(v: u8) -> Option<Self> {
+    match v {
+      0 => Some(Sweep::Decrease),
+      1 => Some(Sweep::Increase),
+      _ => None,
+    }
+  }
+}
+
 struct Pulse {
   enabled: bool,
+
   period: u16,
   frequency: u16,
   duty: Duty,
   duty_idx: u8,
+
   length_counter: u8,
+
+  volume: u8,
+  volume_init: u8,
+  volume_counter: u8,
+  volume_period: u8,
+  volume_sweep: Sweep,
 }
 
 impl Pulse {
@@ -46,6 +69,11 @@ impl Pulse {
       duty: Duty::Half,
       duty_idx: 0,
       length_counter: 0,
+      volume: 0,
+      volume_init: 0,
+      volume_counter: 0,
+      volume_period: 0,
+      volume_sweep: Sweep::Decrease,
     }
   }
 
@@ -55,6 +83,8 @@ impl Pulse {
       self.length_counter = 64;
     }
     self.period = (2048 - self.frequency) * 4;
+    self.volume_counter = self.volume_period;
+    self.volume = self.volume_init;
   }
 
   fn clock_length(&mut self) {
@@ -62,6 +92,24 @@ impl Pulse {
       self.length_counter -= 1;
     } else {
       self.enabled = false;
+    }
+  }
+
+  fn clock_envelope(&mut self) {
+    if self.volume_period > 0 {
+      if self.volume_counter > 0 {
+        self.volume_counter -= 1;
+      } else {
+        let new_volume = match self.volume_sweep {
+          Sweep::Decrease => self.volume.wrapping_sub(1),
+          Sweep::Increase => self.volume + 1,
+        };
+
+        if new_volume <= 15 {
+          self.volume = new_volume;
+          self.volume_counter = self.volume_period;
+        }
+      }
     }
   }
 
@@ -77,6 +125,7 @@ impl Pulse {
   fn output(&self) -> u8 {
     if self.enabled {
       DUTY_WAVEFORMS[self.duty as usize][self.duty_idx as usize]
+        * self.volume
     } else {
       0
     }
@@ -142,6 +191,12 @@ impl APU {
         self.pulse1.duty = Duty::from_u8(w >> 6).unwrap();
         self.pulse1.length_counter = 64 - (w & 0x3F);
       },
+
+      0xFF12 => {
+        self.pulse1.volume_init = w >> 4;
+        self.pulse1.volume_sweep = Sweep::from_u8((w >> 3) & 0x1).unwrap();
+        self.pulse1.volume_period = w & 0x7;
+      }
 
       0xFF13 => {
         self.pulse1.frequency = (self.pulse1.frequency & 0x0700)
@@ -219,11 +274,12 @@ impl APU {
   }
 
   fn clock_64(&mut self) {
+    self.pulse1.clock_envelope();
   }
 
   // Return a sample in [-1.0,1.0]
   pub fn output(&self) -> f32 {
-    let ch1 = (((self.pulse1.output() * 15) as f32) / 7.5) - 1.0;
+    let ch1 = ((self.pulse1.output() as f32) / 7.5) - 1.0;
     ch1
   }
 }
