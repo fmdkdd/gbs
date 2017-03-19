@@ -4,10 +4,11 @@ extern crate hound;
 use std::env;
 
 use gbs::gbs_parser;
-use gbs::gb::GB;
+use gbs::gb::{GB, GB_FREQ};
 use gbs::gb::cpu::{R8, R16};
 
 fn main() {
+  // Read GBS file
   let filename = env::args().nth(1)
     .expect("No GBS file specified");
 
@@ -29,9 +30,6 @@ fn main() {
   println!("copyright: {}", gbs.copyright);
   println!("rom len: {:x}", gbs.rom.len());
 
-  let mut gb = GB::new();
-  let GB_FREQ = 4194304;
-
   // Init WAV output
   let spec = hound::WavSpec {
     channels: 1,
@@ -42,6 +40,8 @@ fn main() {
   let max = 0.3 * (std::i16::MAX as f32);
   let mut writer = hound::WavWriter::create("out.wav", spec).unwrap();
 
+  // Init emu
+  let mut gb = GB::new();
   let idle_addr = 0xF00D;
   gb.cpu.rst_offset = gbs.load_addr;
 
@@ -51,9 +51,6 @@ fn main() {
   // Init
   gb.cpu.clear_registers();
   gb.cpu.clear_ram();
-
-  gb.cpu.write(idle_addr, 0xFF);
-  gb.cpu.write(idle_addr + 1, 0xFF);
 
   gb.cpu.rr_set(R16::SP, gbs.sp);
   gb.cpu.r_set(R8::A, 0);

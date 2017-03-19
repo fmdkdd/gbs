@@ -8,6 +8,8 @@ mod utils;
 use self::cpu::Cpu;
 use self::hardware::Hardware;
 
+pub const GB_FREQ: u32 = 4194304;
+
 pub struct GB {
   pub cpu: Cpu,
 }
