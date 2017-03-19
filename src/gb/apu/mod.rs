@@ -1,24 +1,15 @@
 mod pulse;
+mod wave;
 
 use gb::apu::pulse::Pulse;
+use gb::apu::wave::Wave;
 
 use std::io::Write;
-
-pub enum Register {
-  NR10,
-  NR11,
-  NR12,
-  NR13,
-  NR14,
-  NR21,
-  NR22,
-  NR23,
-  NR24,
-}
 
 pub struct APU {
   pulse1: Pulse,
   pulse2: Pulse,
+  wave: Wave,
 
   frame_seq: FrameSequencer,
 
@@ -37,6 +28,7 @@ impl APU {
     APU {
       pulse1: Pulse::new(),
       pulse2: Pulse::new(),
+      wave: Wave::new(),
 
       frame_seq: FrameSequencer::new(),
 
@@ -52,12 +44,17 @@ impl APU {
   }
 
   pub fn read(&self, addr: u16) -> u8 {
-    use self::Register::*;
+    use gb::apu::pulse::Register::*;
+    use gb::apu::wave::Register::*;
 
     writeln!(&mut ::std::io::stderr(), "peek {:x}", addr).unwrap();
 
     match addr {
       0xFF14 => self.pulse1.read(NR14),
+
+      0xFF24 => self.pulse2.read(NR24),
+
+      0xFF34 => self.wave.read(NR34),
 
       0xFF25 => (if self.right_enable_ch1 { 1 } else { 0 })
         | (if self.right_enable_ch2 { 1 } else { 0 } << 1)
@@ -73,9 +70,10 @@ impl APU {
   }
 
   pub fn write(&mut self, addr: u16, w: u8) {
-    use self::Register::*;
+    use gb::apu::pulse::Register::*;
+    use gb::apu::wave::Register::*;
 
-    writeln!(&mut ::std::io::stderr(), "poke {:x} {:x}", addr, w).unwrap();
+    // writeln!(&mut ::std::io::stderr(), "poke {:x} {:x}", addr, w).unwrap();
 
     match addr {
       0xFF10 => self.pulse1.write(NR10, w),
@@ -89,6 +87,12 @@ impl APU {
       0xFF18 => self.pulse2.write(NR23, w),
       0xFF19 => self.pulse2.write(NR24, w),
 
+      0xFF1A => self.wave.write(NR30, w),
+      0xFF1B => self.wave.write(NR31, w),
+      0xFF1C => self.wave.write(NR32, w),
+      0xFF1D => self.wave.write(NR33, w),
+      0xFF1E => self.wave.write(NR34, w),
+
       0xFF25 => {
         self.right_enable_ch1 = (w & 0x01) > 0;
         self.right_enable_ch2 = (w & 0x02) > 0;
@@ -100,6 +104,10 @@ impl APU {
         self.left_enable_ch4 = (w & 0x80) > 0;
       }
 
+      0xFF30...0xFF3F => {
+        self.wave.write_sample(addr - 0xFF30, w);
+      }
+
       _ => {}
     }
   }
@@ -108,6 +116,7 @@ impl APU {
   pub fn step(&mut self) {
     self.pulse1.clock_frequency();
     self.pulse2.clock_frequency();
+    self.wave.clock_frequency();
 
     // Frame sequencer timing:
     //
@@ -146,6 +155,7 @@ impl APU {
   fn clock_256(&mut self) {
     self.pulse1.clock_length();
     self.pulse2.clock_length();
+    self.wave.clock_length();
   }
 
   fn clock_128(&mut self) {
@@ -161,7 +171,8 @@ impl APU {
   pub fn output(&self) -> f32 {
     let ch1 = ((self.pulse1.output() as f32) / 7.5) - 1.0;
     let ch2 = ((self.pulse2.output() as f32) / 7.5) - 1.0;
-    (ch1 + ch2) / 2.0
+    let ch3 = ((self.wave.output() as f32) / 7.5) - 1.0;
+    (ch1 + ch2 + ch3) / 3.0
   }
 }
 

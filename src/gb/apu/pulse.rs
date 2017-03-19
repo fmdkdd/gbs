@@ -1,4 +1,14 @@
-use gb::apu::Register;
+pub enum Register {
+  NR10,
+  NR11,
+  NR12,
+  NR13,
+  NR14,
+  NR21,
+  NR22,
+  NR23,
+  NR24,
+}
 
 const DUTY_WAVEFORMS : [[u8; 8]; 4] = [
   [0,0,0,0,0,0,0,1],
