@@ -1,66 +1,24 @@
+use gb::apu::pulse::Sweep;
+
+#[derive(Debug)]
 pub enum Register {
-  NR10,
-  NR11,
-  NR12,
-  NR13,
-  NR14,
-  NR21,
-  NR22,
-  NR23,
-  NR24,
+  NR41,
+  NR42,
+  NR43,
+  NR44,
 }
 
-const DUTY_WAVEFORMS : [[u8; 8]; 4] = [
-  [0,0,0,0,0,0,0,1],
-  [1,0,0,0,0,0,0,1],
-  [1,0,0,0,0,1,1,1],
-  [0,1,1,1,1,1,1,0],
-];
-
-#[derive(Copy,Clone)]
-enum Duty {
-  HalfQuarter,
-  Quarter,
-  Half,
-  ThreeQuarters,
-}
-
-impl Duty {
-  // Can't use From trait as this conversion can fail
-  fn from_u8(v: u8) -> Option<Self> {
-    match v {
-      0 => Some(Duty::HalfQuarter),
-      1 => Some(Duty::Quarter),
-      2 => Some(Duty::Half),
-      3 => Some(Duty::ThreeQuarters),
-      _ => None,
-    }
-  }
-}
-
-pub enum Sweep {
-  Decrease,
-  Increase,
-}
-
-impl Sweep {
-  pub fn from_u8(v: u8) -> Option<Self> {
-    match v {
-      0 => Some(Sweep::Decrease),
-      1 => Some(Sweep::Increase),
-      _ => None,
-    }
-  }
-}
-
-pub struct Pulse {
+pub struct Noise {
   enabled: bool,
 
-  // Frequency + duty
-  period: u16,
-  frequency: u16,
-  duty: Duty,
-  duty_idx: u8,
+  // Frequency
+  period: u32,
+  clock_shift: u8,
+  width_mode: u8,
+  divisor_code: u8,
+
+  // Random bits
+  lfsr: u16,
 
   // Length
   length_counter: u8,
@@ -73,14 +31,15 @@ pub struct Pulse {
   volume_sweep: Sweep,
 }
 
-impl Pulse {
+impl Noise {
   pub fn new() -> Self {
-    Pulse {
+    Noise {
       enabled: false,
       period: 0,
-      frequency: 0,
-      duty: Duty::Half,
-      duty_idx: 0,
+      clock_shift: 0,
+      width_mode: 0,
+      divisor_code: 0,
+      lfsr: 0,
       length_counter: 0,
       volume: 0,
       volume_init: 0,
@@ -94,7 +53,7 @@ impl Pulse {
     use self::Register::*;
 
     match reg {
-      NR14 | NR24 => (if self.enabled { 1 } else { 0 } << 6) | 0xBF,
+      NR44 => (if self.enabled { 1 } else { 0 } << 6) | 0xBF,
 
       _ => 0xFF,
     }
@@ -104,25 +63,23 @@ impl Pulse {
     use self::Register::*;
 
     match reg {
-      NR10 => {},
-
-      NR11 | NR21 => {
-        self.duty = Duty::from_u8(w >> 6).unwrap();
-        self.length_counter = 64 - (w & 0x3F);
+      NR41 => {
+        self.length_counter = 64 - w;
       },
 
-      NR12 | NR22 => {
+      NR42 => {
         self.volume_init = w >> 4;
         self.volume_sweep = Sweep::from_u8((w >> 3) & 0x1).unwrap();
         self.volume_period = w & 0x7;
       }
 
-      NR13 | NR23 => {
-        self.frequency = (self.frequency & 0x0700) | (w as u16);
+      NR43 => {
+        self.clock_shift = w >> 4;
+        self.width_mode = (w >> 3) & 0x1;
+        self.divisor_code = w & 0x7;
       },
 
-      NR14 | NR24 => {
-        self.frequency = (self.frequency & 0xFF) | (((w & 0x7) as u16) << 8);
+      NR44 => {
         self.enabled = (w & 0x40) > 0;
 
         if w & 0x80 > 0 {
@@ -132,6 +89,21 @@ impl Pulse {
     }
   }
 
+  fn get_period(&self) -> u32 {
+    let divisor = match self.divisor_code {
+      0 => 4,
+      1 => 8,
+      2 => 16,
+      3 => 24,
+      4 => 32,
+      5 => 40,
+      6 => 48,
+      7 => 56,
+      _ => unreachable!(),
+    };
+    divisor << self.clock_shift
+  }
+
   pub fn trigger(&mut self) {
     self.enabled = true;
 
@@ -139,7 +111,8 @@ impl Pulse {
       self.length_counter = 64;
     }
 
-    self.period = (2048 - self.frequency) * 4;
+    self.period = self.get_period();
+    self.lfsr = 0xFFFF;
 
     self.volume_counter = self.volume_period;
     self.volume = self.volume_init;
@@ -171,23 +144,24 @@ impl Pulse {
     }
   }
 
-  pub fn clock_sweep(&mut self) {
-    // TODO:
-  }
-
   pub fn clock_frequency(&mut self) {
     if self.period > 0 {
       self.period -= 1;
     } else {
-      self.period = (2048 - self.frequency) * 4;
-      self.duty_idx = (self.duty_idx + 1) % 8;
+      self.period = self.get_period();
+
+      let bit = (self.lfsr ^ (self.lfsr >> 1)) & 1;
+      self.lfsr >>= 1;
+      self.lfsr |= bit << 14;
+      if self.width_mode == 1 {
+        self.lfsr = (bit << 6) | (self.lfsr & (!0x40));
+      }
     }
   }
 
   pub fn output(&self) -> u8 {
     if self.enabled {
-      DUTY_WAVEFORMS[self.duty as usize][self.duty_idx as usize]
-        * self.volume
+      (((!self.lfsr) & 0x1) as u8) * self.volume
     } else {
       0
     }

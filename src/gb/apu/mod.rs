@@ -1,8 +1,10 @@
 mod pulse;
 mod wave;
+mod noise;
 
-use gb::apu::pulse::Pulse;
-use gb::apu::wave::Wave;
+use self::pulse::Pulse;
+use self::wave::Wave;
+use self::noise::Noise;
 
 use std::io::Write;
 
@@ -10,6 +12,7 @@ pub struct APU {
   pulse1: Pulse,
   pulse2: Pulse,
   wave: Wave,
+  noise: Noise,
 
   frame_seq: FrameSequencer,
 
@@ -29,6 +32,7 @@ impl APU {
       pulse1: Pulse::new(),
       pulse2: Pulse::new(),
       wave: Wave::new(),
+      noise: Noise::new(),
 
       frame_seq: FrameSequencer::new(),
 
@@ -72,6 +76,7 @@ impl APU {
   pub fn write(&mut self, addr: u16, w: u8) {
     use gb::apu::pulse::Register::*;
     use gb::apu::wave::Register::*;
+    use gb::apu::noise::Register::*;
 
     // writeln!(&mut ::std::io::stderr(), "poke {:x} {:x}", addr, w).unwrap();
 
@@ -92,6 +97,11 @@ impl APU {
       0xFF1C => self.wave.write(NR32, w),
       0xFF1D => self.wave.write(NR33, w),
       0xFF1E => self.wave.write(NR34, w),
+
+      0xFF20 => self.noise.write(NR41, w),
+      0xFF21 => self.noise.write(NR42, w),
+      0xFF22 => self.noise.write(NR43, w),
+      0xFF23 => self.noise.write(NR44, w),
 
       0xFF25 => {
         self.right_enable_ch1 = (w & 0x01) > 0;
@@ -117,6 +127,7 @@ impl APU {
     self.pulse1.clock_frequency();
     self.pulse2.clock_frequency();
     self.wave.clock_frequency();
+    self.noise.clock_frequency();
 
     // Frame sequencer timing:
     //
@@ -156,6 +167,7 @@ impl APU {
     self.pulse1.clock_length();
     self.pulse2.clock_length();
     self.wave.clock_length();
+    self.noise.clock_length();
   }
 
   fn clock_128(&mut self) {
@@ -165,6 +177,7 @@ impl APU {
   fn clock_64(&mut self) {
     self.pulse1.clock_envelope();
     self.pulse2.clock_envelope();
+    self.noise.clock_envelope();
   }
 
   // Return a sample in [-1.0,1.0]
@@ -172,7 +185,8 @@ impl APU {
     let ch1 = ((self.pulse1.output() as f32) / 7.5) - 1.0;
     let ch2 = ((self.pulse2.output() as f32) / 7.5) - 1.0;
     let ch3 = ((self.wave.output() as f32) / 7.5) - 1.0;
-    (ch1 + ch2 + ch3) / 3.0
+    let ch4 = ((self.noise.output() as f32) / 7.5) - 1.0;
+    (ch1 + ch2 + ch3 + ch4) / 4.0
   }
 }
 
