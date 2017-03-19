@@ -30,6 +30,8 @@ impl Volume {
 pub struct Wave {
   enabled: bool,
 
+  dac_power: bool,
+
   // Frequency
   period: u16,
   frequency: u16,
@@ -49,6 +51,7 @@ impl Wave {
   pub fn new() -> Self {
     Wave {
       enabled: false,
+      dac_power: false,
       period: 0,
       frequency: 0,
       length_counter: 0,
@@ -72,7 +75,12 @@ impl Wave {
     use self::Register::*;
 
     match reg {
-      NR30 => {},
+      NR30 => {
+        self.dac_power = if (w >> 7) > 0 { true } else { false };
+        if !self.dac_power {
+          self.enabled = false;
+        }
+      },
 
       NR31 => {
         self.length_counter = 256 - (w as u16);
@@ -131,7 +139,7 @@ impl Wave {
   }
 
   pub fn output(&self) -> u8 {
-    if self.enabled {
+    if self.enabled && self.dac_power {
       let mut s = self.samples[self.sample_nibble / 2];
 
       // Samples are 4bit, so get the right nibble
