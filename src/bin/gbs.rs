@@ -62,7 +62,7 @@ fn main() {
   }
 
   // Play for 10sec
-  let mut frames = 60 * 10;
+  let mut frames = 60 * 60;
   let mut cycle = 0;
   while frames > 0 {
     // Emulate from play_addr at 60Hz
