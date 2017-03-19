@@ -6,4 +6,3 @@ pub mod gbs_parser;
 extern crate glium;
 
 pub mod screen;
-pub mod sound;
