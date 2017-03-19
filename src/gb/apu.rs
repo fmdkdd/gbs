@@ -35,8 +35,6 @@ struct Pulse {
   duty: Duty,
   duty_idx: u8,
   length_counter: u8,
-
-  timer_256: u16,
 }
 
 impl Pulse {
@@ -44,12 +42,10 @@ impl Pulse {
     Pulse {
       enabled: false,
       period: 0,
-      frequency: 440,
+      frequency: 0,
       duty: Duty::Half,
       duty_idx: 0,
       length_counter: 0,
-
-      timer_256: 0,
     }
   }
 
@@ -61,20 +57,15 @@ impl Pulse {
     self.period = (2048 - self.frequency) * 4;
   }
 
-  fn clock(&mut self) {
-    // 256Hz = 16384 cycles
-    if self.timer_256 > 0 {
-      self.timer_256 -= 1;
+  fn clock_length(&mut self) {
+    if self.length_counter > 0 {
+      self.length_counter -= 1;
     } else {
-      self.timer_256 = 16384;
-      // Clock length counter
-      if self.length_counter > 0 {
-        self.length_counter -= 1;
-      } else {
-        self.enabled = false;
-      }
+      self.enabled = false;
     }
+  }
 
+  fn clock_frequency(&mut self) {
     if self.period > 0 {
       self.period -= 1;
     } else {
@@ -95,6 +86,8 @@ impl Pulse {
 pub struct APU {
   pulse1: Pulse,
 
+  frame_seq: FrameSequencer,
+
   right_enable_ch1: bool,
   right_enable_ch2: bool,
   right_enable_ch3: bool,
@@ -109,6 +102,8 @@ impl APU {
   pub fn new() -> Self {
     APU {
       pulse1: Pulse::new(),
+
+      frame_seq: FrameSequencer::new(),
 
       right_enable_ch1: true,
       right_enable_ch2: true,
@@ -178,13 +173,84 @@ impl APU {
     }
   }
 
+  // Clock APU.  Should be called at GB_FREQ: 1 CPU cycle = 1 APU cycle.
   pub fn step(&mut self) {
-    self.pulse1.clock();
+    self.pulse1.clock_frequency();
+
+    // Frame sequencer timing:
+    //
+    // Step Length Ctr  Vol Env   Sweep
+    // ------------------------------------
+    // 0    Clock       -         -
+    // 1    -           -         -
+    // 2    Clock       -         Clock
+    // 3    -           -         -
+    // 4    Clock       -         -
+    // 5    -           -         -
+    // 6    Clock       -         Clock
+    // 7    -           Clock     -
+    // ------------------------------------
+    // Rate 256 Hz      64 Hz     128 Hz
+    if self.frame_seq.clock() {
+      self.clock_512();
+
+      if self.frame_seq.frame % 2 == 0 {
+        self.clock_256();
+      }
+
+      if self.frame_seq.frame % 4 == 2 {
+        self.clock_128();
+      }
+
+      if self.frame_seq.frame % 8 == 7 {
+        self.clock_64();
+      }
+    }
+  }
+
+  fn clock_512(&mut self) {
+  }
+
+  fn clock_256(&mut self) {
+    self.pulse1.clock_length();
+  }
+
+  fn clock_128(&mut self) {
+  }
+
+  fn clock_64(&mut self) {
   }
 
   // Return a sample in [-1.0,1.0]
   pub fn output(&self) -> f32 {
     let ch1 = (((self.pulse1.output() * 15) as f32) / 7.5) - 1.0;
     ch1
+  }
+}
+
+// 512Hz timer controlling low-frequency modulation units in the APU
+struct FrameSequencer {
+  frame: u32,
+  period: u16,
+}
+
+impl FrameSequencer {
+  fn new() -> Self {
+    FrameSequencer {
+      frame: 0,
+      // TODO: should period be initially loaded?
+      period: 0,
+    }
+  }
+
+  fn clock(&mut self) -> bool {
+    if self.period > 0 {
+      self.period -= 1;
+      false
+    } else {
+      self.period = 8192;
+      self.frame = self.frame.wrapping_add(1);
+      true
+    }
   }
 }
