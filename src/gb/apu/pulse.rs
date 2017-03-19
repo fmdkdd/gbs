@@ -46,13 +46,16 @@ impl Sweep {
 pub struct Pulse {
   enabled: bool,
 
+  // Frequency + duty
   period: u16,
   frequency: u16,
   duty: Duty,
   duty_idx: u8,
 
+  // Length
   length_counter: u8,
 
+  // Envelope
   volume: u8,
   volume_init: u8,
   volume_counter: u8,
@@ -92,6 +95,7 @@ impl Pulse {
 
     match reg {
       NR10 => {
+
       },
 
       NR11 | NR21 => {
@@ -124,10 +128,13 @@ impl Pulse {
 
   pub fn trigger(&mut self) {
     self.enabled = true;
+
     if self.length_counter == 0 {
       self.length_counter = 64;
     }
+
     self.period = (2048 - self.frequency) * 4;
+
     self.volume_counter = self.volume_period;
     self.volume = self.volume_init;
   }
@@ -159,7 +166,7 @@ impl Pulse {
   }
 
   pub fn clock_sweep(&mut self) {
-
+    // TODO:
   }
 
   pub fn clock_frequency(&mut self) {
