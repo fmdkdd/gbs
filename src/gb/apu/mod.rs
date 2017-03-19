@@ -54,6 +54,8 @@ impl APU {
   pub fn read(&self, addr: u16) -> u8 {
     use self::Register::*;
 
+    writeln!(&mut ::std::io::stderr(), "peek {:x}", addr).unwrap();
+
     match addr {
       0xFF14 => self.pulse1.read(NR14),
 

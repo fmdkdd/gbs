@@ -94,9 +94,7 @@ impl Pulse {
     use self::Register::*;
 
     match reg {
-      NR10 => {
-
-      },
+      NR10 => {},
 
       NR11 | NR21 => {
         self.duty = Duty::from_u8(w >> 6).unwrap();
@@ -110,13 +108,11 @@ impl Pulse {
       }
 
       NR13 | NR23 => {
-        self.frequency = (self.frequency & 0x0700)
-          | w as u16;
+        self.frequency = (self.frequency & 0x0700) | (w as u16);
       },
 
       NR14 | NR24 => {
-        self.frequency = (self.frequency & 0xFF)
-          | ((w & 0x7) as u16) << 8;
+        self.frequency = (self.frequency & 0xFF) | (((w & 0x7) as u16) << 8);
         self.enabled = (w & 0x40) > 0;
 
         if w & 0x80 > 0 {

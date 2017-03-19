@@ -4,7 +4,7 @@ extern crate hound;
 use std::env;
 
 use gbs::gbs_parser;
-use gbs::gb::{GB, GB_FREQ};
+use gbs::gb::GB;
 use gbs::gb::cpu::{R8, R16};
 
 fn main() {
@@ -61,9 +61,10 @@ fn main() {
     gb.cpu.step();
   }
 
-  // Play
-  let mut elapsed = GB_FREQ * 10;
-  while elapsed > 0 {
+  // Play for 10sec
+  let mut frames = 60 * 10;
+  let mut cycle = 0;
+  while frames > 0 {
     // Emulate from play_addr at 60Hz
     let mut frame_period = 70224u32;
     gb.cpu.call(gbs.play_addr);
@@ -75,10 +76,10 @@ fn main() {
         gb.cpu.hardware.apu_step();
 
         // Downsample
-        if elapsed % 95 == 0 {
+        if cycle % 95 == 0 {
           writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
         }
-        elapsed -= 1;
+        cycle += 1;
       }
       frame_period -= cycles as u32;
     }
@@ -89,10 +90,11 @@ fn main() {
       gb.cpu.hardware.apu_step();
 
       // Downsample
-      if elapsed % 95 == 0 {
+      if cycle % 95 == 0 {
         writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
       }
-      elapsed -= 1;
+      cycle += 1;
     }
+    frames -= 1;
   }
 }
