@@ -18,8 +18,6 @@ pub enum Register {
 
 pub struct APU {
   pulse1: Pulse,
-
-  // TODO: read/write and clock pulse2
   pulse2: Pulse,
 
   frame_seq: FrameSequencer,
@@ -107,6 +105,7 @@ impl APU {
   // Clock APU.  Should be called at GB_FREQ: 1 CPU cycle = 1 APU cycle.
   pub fn step(&mut self) {
     self.pulse1.clock_frequency();
+    self.pulse2.clock_frequency();
 
     // Frame sequencer timing:
     //
@@ -144,6 +143,7 @@ impl APU {
 
   fn clock_256(&mut self) {
     self.pulse1.clock_length();
+    self.pulse2.clock_length();
   }
 
   fn clock_128(&mut self) {
@@ -152,12 +152,14 @@ impl APU {
 
   fn clock_64(&mut self) {
     self.pulse1.clock_envelope();
+    self.pulse2.clock_envelope();
   }
 
   // Return a sample in [-1.0,1.0]
   pub fn output(&self) -> f32 {
     let ch1 = ((self.pulse1.output() as f32) / 7.5) - 1.0;
-    ch1
+    let ch2 = ((self.pulse2.output() as f32) / 7.5) - 1.0;
+    (ch1 + ch2) / 2.0
   }
 }
 
