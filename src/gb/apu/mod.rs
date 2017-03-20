@@ -16,14 +16,11 @@ pub struct APU {
 
   frame_seq: FrameSequencer,
 
-  right_enable_ch1: bool,
-  right_enable_ch2: bool,
-  right_enable_ch3: bool,
-  right_enable_ch4: bool,
-  left_enable_ch1: bool,
-  left_enable_ch2: bool,
-  left_enable_ch3: bool,
-  left_enable_ch4: bool,
+  // Mixer
+  left_enable: [bool; 4],
+  right_enable: [bool; 4],
+  left_volume: u8,
+  right_volume: u8,
 }
 
 impl APU {
@@ -33,17 +30,11 @@ impl APU {
       pulse2: Pulse::new(),
       wave: Wave::new(),
       noise: Noise::new(),
-
       frame_seq: FrameSequencer::new(),
-
-      right_enable_ch1: true,
-      right_enable_ch2: true,
-      right_enable_ch3: true,
-      right_enable_ch4: true,
-      left_enable_ch1: true,
-      left_enable_ch2: true,
-      left_enable_ch3: true,
-      left_enable_ch4: true,
+      left_enable: [false; 4],
+      right_enable: [false; 4],
+      left_volume: 0,
+      right_volume: 0,
     }
   }
 
@@ -60,14 +51,14 @@ impl APU {
 
       0xFF34 => self.wave.read(NR34),
 
-      0xFF25 => (if self.right_enable_ch1 { 1 } else { 0 })
-        | (if self.right_enable_ch2 { 1 } else { 0 } << 1)
-        | (if self.right_enable_ch3 { 1 } else { 0 } << 2)
-        | (if self.right_enable_ch4 { 1 } else { 0 } << 3)
-        | (if self.left_enable_ch1 { 1 } else { 0 } << 4)
-        | (if self.left_enable_ch2 { 1 } else { 0 } << 5)
-        | (if self.left_enable_ch3 { 1 } else { 0 } << 6)
-        | (if self.left_enable_ch4 { 1 } else { 0 } << 7),
+      // 0xFF25 => (if self.right_enable_ch1 { 1 } else { 0 })
+      //   | (if self.right_enable_ch2 { 1 } else { 0 } << 1)
+      //   | (if self.right_enable_ch3 { 1 } else { 0 } << 2)
+      //   | (if self.right_enable_ch4 { 1 } else { 0 } << 3)
+      //   | (if self.left_enable_ch1 { 1 } else { 0 } << 4)
+      //   | (if self.left_enable_ch2 { 1 } else { 0 } << 5)
+      //   | (if self.left_enable_ch3 { 1 } else { 0 } << 6)
+      //   | (if self.left_enable_ch4 { 1 } else { 0 } << 7),
 
         _ => 0xFF,
     }
@@ -103,15 +94,18 @@ impl APU {
       0xFF22 => self.noise.write(NR43, w),
       0xFF23 => self.noise.write(NR44, w),
 
+      0xFF24 => {
+        self.left_volume = (w >> 4) & 0x7;
+        self.right_volume = w       & 0x7;
+      }
+
       0xFF25 => {
-        self.right_enable_ch1 = (w & 0x01) > 0;
-        self.right_enable_ch2 = (w & 0x02) > 0;
-        self.right_enable_ch3 = (w & 0x04) > 0;
-        self.right_enable_ch4 = (w & 0x08) > 0;
-        self.left_enable_ch1 = (w & 0x10) > 0;
-        self.left_enable_ch2 = (w & 0x20) > 0;
-        self.left_enable_ch3 = (w & 0x40) > 0;
-        self.left_enable_ch4 = (w & 0x80) > 0;
+        for b in 0..4 {
+          self.right_enable[b] = (w & (1 << b)) > 0;
+        }
+        for b in 4..8 {
+          self.left_enable[b - 4] = (w & (1 << b)) > 0;
+        }
       }
 
       0xFF30...0xFF3F => {
@@ -180,13 +174,39 @@ impl APU {
     self.noise.clock_envelope();
   }
 
-  // Return a sample in [-1.0,1.0]
-  pub fn output(&self) -> f32 {
-    let ch1 = self.pulse1.dac_output();
-    let ch2 = self.pulse2.dac_output();
-    let ch3 = self.wave.dac_output();
-    let ch4 = self.noise.dac_output();
-    (ch1 + ch2 + ch3 + ch4) / 4.0
+  // Return a two samples (stereo) in [-1.0,1.0]
+  fn mixer_output(&self) -> (f32, f32) {
+    let chans = vec![
+      self.pulse1.dac_output(),
+      self.pulse2.dac_output(),
+      self.wave.dac_output(),
+      self.noise.dac_output(),
+    ];
+
+    let left = self.left_enable.iter().zip(chans.iter())
+      .filter(|&(enabled,_)| *enabled)
+      .map(|(_, chan)| chan)
+      .sum();
+
+    let right = self.right_enable.iter().zip(chans.iter())
+      .filter(|&(enabled,_)| *enabled)
+      .map(|(_, chan)| chan)
+      .sum();
+
+    (left, right)
+  }
+
+  // Map volume from [0,7] to [0.0,1.0]
+  fn normalize_volume(vol: u8) -> f32 {
+    ((vol + 1) as f32) / 8.0
+  }
+
+  pub fn output(&self) -> (f32, f32) {
+    let (left, right) = self.mixer_output();
+    let left_vol = Self::normalize_volume(self.left_volume);
+    let right_vol = Self::normalize_volume(self.right_volume);
+
+    ((left * left_vol), (right * right_vol))
   }
 }
 

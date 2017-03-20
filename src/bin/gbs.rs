@@ -32,12 +32,12 @@ fn main() {
 
   // Init WAV output
   let spec = hound::WavSpec {
-    channels: 1,
+    channels: 2,
     sample_rate: 44100,
     bits_per_sample: 16,
     sample_format: hound::SampleFormat::Int,
   };
-  let max = 0.3 * (std::i16::MAX as f32);
+  let max = std::i16::MAX as f32;
   let mut writer = hound::WavWriter::create("out.wav", spec).unwrap();
 
   // Init emu
@@ -77,7 +77,9 @@ fn main() {
 
         // Downsample
         if cycle % 95 == 0 {
-          writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
+          let (left, right) = gb.cpu.hardware.apu_output();
+          writer.write_sample((left * max) as i16).unwrap();
+          writer.write_sample((right * max) as i16).unwrap();
         }
         cycle += 1;
       }
@@ -91,7 +93,9 @@ fn main() {
 
       // Downsample
       if cycle % 95 == 0 {
-        writer.write_sample((gb.cpu.hardware.apu_output() * max) as i16).unwrap();
+        let (left, right) = gb.cpu.hardware.apu_output();
+        writer.write_sample((left * max) as i16).unwrap();
+        writer.write_sample((right * max) as i16).unwrap();
       }
       cycle += 1;
     }

@@ -58,7 +58,7 @@ impl Hardware {
     self.apu.step();
   }
 
-  pub fn apu_output(&self) -> f32 {
+  pub fn apu_output(&self) -> (f32, f32) {
     self.apu.output()
   }
 }
