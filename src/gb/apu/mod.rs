@@ -182,10 +182,10 @@ impl APU {
 
   // Return a sample in [-1.0,1.0]
   pub fn output(&self) -> f32 {
-    let ch1 = ((self.pulse1.output() as f32) / 7.5) - 1.0;
-    let ch2 = ((self.pulse2.output() as f32) / 7.5) - 1.0;
-    let ch3 = ((self.wave.output() as f32) / 7.5) - 1.0;
-    let ch4 = ((self.noise.output() as f32) / 7.5) - 1.0;
+    let ch1 = self.pulse1.dac_output();
+    let ch2 = self.pulse2.dac_output();
+    let ch3 = self.wave.dac_output();
+    let ch4 = self.noise.dac_output();
     (ch1 + ch2 + ch3 + ch4) / 4.0
   }
 }

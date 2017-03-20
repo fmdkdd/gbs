@@ -55,6 +55,7 @@ impl Sweep {
 
 pub struct Pulse {
   enabled: bool,
+  dac_enabled: bool,
 
   // Frequency + duty
   period: u16,
@@ -77,6 +78,7 @@ impl Pulse {
   pub fn new() -> Self {
     Pulse {
       enabled: false,
+      dac_enabled: false,
       period: 0,
       frequency: 0,
       duty: Duty::Half,
@@ -115,6 +117,14 @@ impl Pulse {
         self.volume_init = w >> 4;
         self.volume_sweep = Sweep::from_u8((w >> 3) & 0x1).unwrap();
         self.volume_period = w & 0x7;
+
+        // The upper 5 bits of NR_2 are zero control the DAC
+        self.dac_enabled = if w >> 3 > 0 { true } else { false };
+
+        // Any time the DAC is off, the channel is disabled
+        if !self.dac_enabled {
+          self.enabled = false;
+        }
       }
 
       NR13 | NR23 => {
@@ -184,12 +194,27 @@ impl Pulse {
     }
   }
 
-  pub fn output(&self) -> u8 {
+  // Return 0 or 1
+  fn waveform_output(&self) -> u8 {
+    DUTY_WAVEFORMS[self.duty as usize][self.duty_idx as usize]
+  }
+
+  // Return a value in [0,15]
+  fn volume_output(&self) -> u8 {
     if self.enabled {
-      DUTY_WAVEFORMS[self.duty as usize][self.duty_idx as usize]
-        * self.volume
+      self.waveform_output() * self.volume
     } else {
       0
+    }
+  }
+
+  // Return a value in [-1.0,+1.0]
+  pub fn dac_output(&self) -> f32 {
+    if self.dac_enabled {
+      let s = self.volume_output() as f32;
+      s / 7.5 - 1.0
+    } else {
+      0.0
     }
   }
 }

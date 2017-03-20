@@ -29,8 +29,7 @@ impl Volume {
 
 pub struct Wave {
   enabled: bool,
-
-  dac_power: bool,
+  dac_enabled: bool,
 
   // Frequency
   period: u16,
@@ -45,19 +44,21 @@ pub struct Wave {
   // Samples
   samples: [u8; 16],
   sample_nibble: usize,
+  sample_buffer: u8,
 }
 
 impl Wave {
   pub fn new() -> Self {
     Wave {
       enabled: false,
-      dac_power: false,
+      dac_enabled: false,
       period: 0,
       frequency: 0,
       length_counter: 0,
       volume: Volume::Zero,
       samples: [0; 16],
       sample_nibble: 0,
+      sample_buffer: 0,
     }
   }
 
@@ -76,8 +77,9 @@ impl Wave {
 
     match reg {
       NR30 => {
-        self.dac_power = if (w >> 7) > 0 { true } else { false };
-        if !self.dac_power {
+        self.dac_enabled = if (w >> 7) > 0 { true } else { false };
+        // Any time the DAC is off, the channel is disabled
+        if !self.dac_enabled {
           self.enabled = false;
         }
       },
@@ -118,6 +120,7 @@ impl Wave {
 
     self.period = (2048 - self.frequency) * 2;
     self.sample_nibble = 0;
+    // sample_buffer is not refilled on trigger
   }
 
   pub fn clock_length(&mut self) {
@@ -135,24 +138,43 @@ impl Wave {
       self.period = (2048 - self.frequency) * 2;
 
       self.sample_nibble = (self.sample_nibble + 1) % 32;
+      self.sample_buffer = self.get_current_sample();
     }
   }
 
-  pub fn output(&self) -> u8 {
-    if self.enabled && self.dac_power {
-      let mut s = self.samples[self.sample_nibble / 2];
+  fn get_current_sample(&self) -> u8 {
+    let s = self.samples[self.sample_nibble / 2];
 
-      // Samples are 4bit, so get the right nibble
-      if self.sample_nibble % 2 == 0 {
-        s >>= 4;
-      } else {
-        s &= 0x0F;
-      }
+    // Samples are 4bit, so get the right nibble
+    if self.sample_nibble % 2 == 0 {
+      s >> 4
+    } else {
+      s & 0x0F
+    }
+  }
 
-      // Shift by volume
-      s >> (self.volume as u8)
+  // Return a value in [0,15]
+  fn waveform_output(&self) -> u8 {
+    self.sample_buffer
+  }
+
+  // Return a value in [0,15]
+  fn volume_output(&self) -> u8 {
+    if self.enabled {
+      // Shift by volume code
+      self.waveform_output() >> (self.volume as u8)
     } else {
       0
+    }
+  }
+
+  // Return a value in [-1.0,+1.0]
+  pub fn dac_output(&self) -> f32 {
+    if self.dac_enabled {
+      let s = self.volume_output() as f32;
+      s / 7.5 - 1.0
+    } else {
+      0.0
     }
   }
 }
