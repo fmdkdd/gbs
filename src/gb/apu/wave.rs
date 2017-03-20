@@ -1,3 +1,5 @@
+use gb::apu::flag::Flag;
+
 pub enum Register {
   NR30,
   NR31,
@@ -28,8 +30,8 @@ impl Volume {
 }
 
 pub struct Wave {
-  enabled: bool,
-  dac_enabled: bool,
+  enabled: Flag,
+  dac_enabled: Flag,
 
   // Frequency
   period: u16,
@@ -50,8 +52,8 @@ pub struct Wave {
 impl Wave {
   pub fn new() -> Self {
     Wave {
-      enabled: false,
-      dac_enabled: false,
+      enabled: Flag::Off,
+      dac_enabled: Flag::Off,
       period: 0,
       frequency: 0,
       length_counter: 0,
@@ -62,13 +64,23 @@ impl Wave {
     }
   }
 
+  pub fn is_enabled(&self) -> bool {
+    bool::from(self.enabled)
+  }
+
+  pub fn is_dac_enabled(&self) -> bool {
+    bool::from(self.dac_enabled)
+  }
+
   pub fn read(&self, reg: Register) -> u8 {
     use self::Register::*;
 
     match reg {
-      NR34 => (if self.enabled { 1 } else { 0 } << 6) | 0xBF,
-
-      _ => 0xFF,
+      NR30 => (self.dac_enabled as u8) << 7,
+      NR31 => 0, // write-only
+      NR32 => (self.volume as u8) << 5,
+      NR33 => 0, // write-only
+      NR34 => ((self.enabled as u8) << 6),
     }
   }
 
@@ -77,10 +89,10 @@ impl Wave {
 
     match reg {
       NR30 => {
-        self.dac_enabled = if (w >> 7) > 0 { true } else { false };
+        self.dac_enabled = Flag::from((w >> 7) > 0);
         // Any time the DAC is off, the channel is disabled
-        if !self.dac_enabled {
-          self.enabled = false;
+        if !self.is_dac_enabled() {
+          self.enabled = Flag::Off;
         }
       },
 
@@ -98,7 +110,7 @@ impl Wave {
 
       NR34 => {
         self.frequency = (self.frequency & 0xFF) | (((w & 0x7) as u16) << 8);
-        self.enabled = (w & 0x40) > 0;
+        self.enabled = Flag::from((w & 0x40) > 0);
 
         if w & 0x80 > 0 {
           self.trigger();
@@ -112,7 +124,7 @@ impl Wave {
   }
 
   pub fn trigger(&mut self) {
-    self.enabled = true;
+    self.enabled = Flag::On;
 
     if self.length_counter == 0 {
       self.length_counter = 256;
@@ -127,7 +139,7 @@ impl Wave {
     if self.length_counter > 0 {
       self.length_counter -= 1;
     } else {
-      self.enabled = false;
+      self.enabled = Flag::Off;
     }
   }
 
@@ -160,7 +172,7 @@ impl Wave {
 
   // Return a value in [0,15]
   fn volume_output(&self) -> u8 {
-    if self.enabled {
+    if self.is_enabled() {
       // Shift by volume code
       self.waveform_output() >> (self.volume as u8)
     } else {
@@ -170,7 +182,7 @@ impl Wave {
 
   // Return a value in [-1.0,+1.0]
   pub fn dac_output(&self) -> f32 {
-    if self.dac_enabled {
+    if self.is_dac_enabled() {
       let s = self.volume_output() as f32;
       s / 7.5 - 1.0
     } else {

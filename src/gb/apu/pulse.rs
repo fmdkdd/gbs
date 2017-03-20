@@ -1,3 +1,5 @@
+use gb::apu::flag::Flag;
+
 pub enum Register {
   NR10,
   NR11,
@@ -17,7 +19,7 @@ const DUTY_WAVEFORMS : [[u8; 8]; 4] = [
   [0,1,1,1,1,1,1,0],
 ];
 
-#[derive(Copy,Clone)]
+#[derive(Debug,Copy,Clone)]
 enum Duty {
   HalfQuarter,
   Quarter,
@@ -38,6 +40,7 @@ impl Duty {
   }
 }
 
+#[derive(Debug,Copy,Clone)]
 pub enum Sweep {
   Decrease,
   Increase,
@@ -54,8 +57,8 @@ impl Sweep {
 }
 
 pub struct Pulse {
-  enabled: bool,
-  dac_enabled: bool,
+  enabled: Flag,
+  dac_enabled: Flag,
 
   // Frequency + duty
   period: u16,
@@ -77,8 +80,8 @@ pub struct Pulse {
 impl Pulse {
   pub fn new() -> Self {
     Pulse {
-      enabled: false,
-      dac_enabled: false,
+      enabled: Flag::Off,
+      dac_enabled: Flag::Off,
       period: 0,
       frequency: 0,
       duty: Duty::Half,
@@ -92,13 +95,31 @@ impl Pulse {
     }
   }
 
+  pub fn is_enabled(&self) -> bool {
+    bool::from(self.enabled)
+  }
+
+  pub fn is_dac_enabled(&self) -> bool {
+    bool::from(self.dac_enabled)
+  }
+
   pub fn read(&self, reg: Register) -> u8 {
     use self::Register::*;
 
     match reg {
-      NR14 | NR24 => (if self.enabled { 1 } else { 0 } << 6) | 0xBF,
+      NR10 => 0,
 
-      _ => 0xFF,
+      NR11 | NR21 => (self.duty as u8) << 6,
+      // Length is write-only
+
+      NR12 | NR22 => self.volume_init << 4
+        | (self.volume_sweep as u8) << 3
+        | self.volume_period,
+
+      // Frequency is write-only
+      NR13 | NR23 => 0,
+
+      NR14 | NR24 => ((self.enabled as u8) << 6),
     }
   }
 
@@ -119,11 +140,11 @@ impl Pulse {
         self.volume_period = w & 0x7;
 
         // The upper 5 bits of NR_2 are zero control the DAC
-        self.dac_enabled = if w >> 3 > 0 { true } else { false };
+        self.dac_enabled = Flag::from((w >> 3) > 0);
 
         // Any time the DAC is off, the channel is disabled
-        if !self.dac_enabled {
-          self.enabled = false;
+        if !self.is_dac_enabled() {
+          self.enabled = Flag::Off;
         }
       }
 
@@ -133,7 +154,7 @@ impl Pulse {
 
       NR14 | NR24 => {
         self.frequency = (self.frequency & 0xFF) | (((w & 0x7) as u16) << 8);
-        self.enabled = (w & 0x40) > 0;
+        self.enabled = Flag::from((w & 0x40) > 0);
 
         if w & 0x80 > 0 {
           self.trigger();
@@ -143,7 +164,7 @@ impl Pulse {
   }
 
   pub fn trigger(&mut self) {
-    self.enabled = true;
+    self.enabled = Flag::On;
 
     if self.length_counter == 0 {
       self.length_counter = 64;
@@ -159,7 +180,7 @@ impl Pulse {
     if self.length_counter > 0 {
       self.length_counter -= 1;
     } else {
-      self.enabled = false;
+      self.enabled = Flag::Off;
     }
   }
 
@@ -201,7 +222,7 @@ impl Pulse {
 
   // Return a value in [0,15]
   fn volume_output(&self) -> u8 {
-    if self.enabled {
+    if self.is_enabled() {
       self.waveform_output() * self.volume
     } else {
       0
@@ -210,7 +231,7 @@ impl Pulse {
 
   // Return a value in [-1.0,+1.0]
   pub fn dac_output(&self) -> f32 {
-    if self.dac_enabled {
+    if self.is_dac_enabled() {
       let s = self.volume_output() as f32;
       s / 7.5 - 1.0
     } else {

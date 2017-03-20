@@ -1,3 +1,4 @@
+use gb::apu::flag::Flag;
 use gb::apu::pulse::Sweep;
 
 #[derive(Debug)]
@@ -9,8 +10,8 @@ pub enum Register {
 }
 
 pub struct Noise {
-  enabled: bool,
-  dac_enabled: bool,
+  enabled: Flag,
+  dac_enabled: Flag,
 
   // Frequency
   period: u32,
@@ -35,8 +36,8 @@ pub struct Noise {
 impl Noise {
   pub fn new() -> Self {
     Noise {
-      enabled: false,
-      dac_enabled: false,
+      enabled: Flag::Off,
+      dac_enabled: Flag::Off,
       period: 0,
       clock_shift: 0,
       width_mode: 0,
@@ -51,13 +52,29 @@ impl Noise {
     }
   }
 
+  pub fn is_enabled(&self) -> bool {
+    bool::from(self.enabled)
+  }
+
+  pub fn is_dac_enabled(&self) -> bool {
+    bool::from(self.dac_enabled)
+  }
+
   pub fn read(&self, reg: Register) -> u8 {
     use self::Register::*;
 
     match reg {
-      NR44 => (if self.enabled { 1 } else { 0 } << 6) | 0xBF,
+      NR41 => 0, // write-only
 
-      _ => 0xFF,
+      NR42 => self.volume_init << 4
+        | (self.volume_sweep as u8) << 3
+        | self.volume_period,
+
+      NR43 => self.clock_shift << 4
+        | self.width_mode << 3
+        | self.divisor_code,
+
+      NR44 => (self.enabled as u8) << 6,
     }
   }
 
@@ -75,11 +92,11 @@ impl Noise {
         self.volume_period = w & 0x7;
 
         // The upper 5 bits of NR_2 are zero control the DAC
-        self.dac_enabled = if w >> 3 > 0 { true } else { false };
+        self.dac_enabled = Flag::from((w >> 3) > 0);
 
         // Any time the DAC is off, the channel is disabled
-        if !self.dac_enabled {
-          self.enabled = false;
+        if !self.is_dac_enabled() {
+          self.enabled = Flag::Off;
         }
       }
 
@@ -90,7 +107,7 @@ impl Noise {
       },
 
       NR44 => {
-        self.enabled = (w & 0x40) > 0;
+        self.enabled = Flag::from((w & 0x40) > 0);
 
         if w & 0x80 > 0 {
           self.trigger();
@@ -115,7 +132,7 @@ impl Noise {
   }
 
   pub fn trigger(&mut self) {
-    self.enabled = true;
+    self.enabled = Flag::On;
 
     if self.length_counter == 0 {
       self.length_counter = 64;
@@ -132,7 +149,7 @@ impl Noise {
     if self.length_counter > 0 {
       self.length_counter -= 1;
     } else {
-      self.enabled = false;
+      self.enabled = Flag::Off;
     }
   }
 
@@ -176,7 +193,7 @@ impl Noise {
 
   // Return a value in [0,15]
   fn volume_output(&self) -> u8 {
-    if self.enabled {
+    if self.is_enabled() {
       self.waveform_output() * self.volume
     } else {
       0
@@ -185,7 +202,7 @@ impl Noise {
 
   // Return a value in [-1.0,+1.0]
   pub fn dac_output(&self) -> f32 {
-    if self.dac_enabled {
+    if self.is_dac_enabled() {
       let s = self.volume_output() as f32;
       s / 7.5 - 1.0
     } else {

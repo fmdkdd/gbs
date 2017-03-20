@@ -1,14 +1,24 @@
+mod flag;
 mod pulse;
 mod wave;
 mod noise;
 
+use self::flag::Flag;
 use self::pulse::Pulse;
 use self::wave::Wave;
 use self::noise::Noise;
 
-use std::io::Write;
+const REGISTERS_MASK : [u8; 23] = [
+  0x80, 0x3F, 0x00, 0xFF, 0xBF,
+  0xFF, 0x3F, 0x00, 0xFF, 0xBF,
+  0x7F, 0xFF, 0x9F, 0xFF, 0xBF,
+  0xFF, 0xFF, 0x00, 0x00, 0xBF,
+  0x00, 0x00, 0x70
+];
 
 pub struct APU {
+  enabled: Flag,
+
   pulse1: Pulse,
   pulse2: Pulse,
   wave: Wave,
@@ -17,8 +27,8 @@ pub struct APU {
   frame_seq: FrameSequencer,
 
   // Mixer
-  left_enable: [bool; 4],
-  right_enable: [bool; 4],
+  left_enable: [Flag; 4],
+  right_enable: [Flag; 4],
   left_volume: u8,
   right_volume: u8,
 }
@@ -26,13 +36,14 @@ pub struct APU {
 impl APU {
   pub fn new() -> Self {
     APU {
+      enabled: Flag::Off,
       pulse1: Pulse::new(),
       pulse2: Pulse::new(),
       wave: Wave::new(),
       noise: Noise::new(),
       frame_seq: FrameSequencer::new(),
-      left_enable: [false; 4],
-      right_enable: [false; 4],
+      left_enable: [Flag::Off; 4],
+      right_enable: [Flag::Off; 4],
       left_volume: 0,
       right_volume: 0,
     }
@@ -41,35 +52,53 @@ impl APU {
   pub fn read(&self, addr: u16) -> u8 {
     use gb::apu::pulse::Register::*;
     use gb::apu::wave::Register::*;
+    use gb::apu::noise::Register::*;
 
-    writeln!(&mut ::std::io::stderr(), "peek {:x}", addr).unwrap();
-
-    match addr {
+    let w = match addr {
+      0xFF10 => self.pulse1.read(NR10),
+      0xFF11 => self.pulse1.read(NR11),
+      0xFF12 => self.pulse1.read(NR12),
+      0xFF13 => self.pulse1.read(NR13),
       0xFF14 => self.pulse1.read(NR14),
 
-      0xFF24 => self.pulse2.read(NR24),
+      0xFF16 => self.pulse2.read(NR21),
+      0xFF17 => self.pulse2.read(NR22),
+      0xFF18 => self.pulse2.read(NR23),
+      0xFF19 => self.pulse2.read(NR24),
 
-      0xFF34 => self.wave.read(NR34),
+      0xFF1A => self.wave.read(NR30),
+      0xFF1B => self.wave.read(NR31),
+      0xFF1C => self.wave.read(NR32),
+      0xFF1D => self.wave.read(NR33),
+      0xFF1E => self.wave.read(NR34),
 
-      // 0xFF25 => (if self.right_enable_ch1 { 1 } else { 0 })
-      //   | (if self.right_enable_ch2 { 1 } else { 0 } << 1)
-      //   | (if self.right_enable_ch3 { 1 } else { 0 } << 2)
-      //   | (if self.right_enable_ch4 { 1 } else { 0 } << 3)
-      //   | (if self.left_enable_ch1 { 1 } else { 0 } << 4)
-      //   | (if self.left_enable_ch2 { 1 } else { 0 } << 5)
-      //   | (if self.left_enable_ch3 { 1 } else { 0 } << 6)
-      //   | (if self.left_enable_ch4 { 1 } else { 0 } << 7),
+      0xFF20 => self.noise.read(NR41),
+      0xFF21 => self.noise.read(NR42),
+      0xFF22 => self.noise.read(NR43),
+      0xFF23 => self.noise.read(NR44),
 
-        _ => 0xFF,
-    }
+      0xFF24 => self.left_volume << 4
+        | self.right_volume,
+
+      0xFF25 => self.left_enable.iter().chain(self.right_enable.iter())
+        .fold(0, |acc, &b| acc << 1 + (b as u8)),
+
+      0xFF26 => (self.enabled as u8) << 7
+        | (self.noise.is_enabled() as u8) << 3
+        | (self.wave.is_enabled() as u8) << 2
+        | (self.pulse2.is_enabled() as u8) << 1
+        | (self.pulse1.is_enabled() as u8),
+
+        _ => unreachable!()
+    };
+
+    w | REGISTERS_MASK[(addr - 0xFF10) as usize]
   }
 
   pub fn write(&mut self, addr: u16, w: u8) {
     use gb::apu::pulse::Register::*;
     use gb::apu::wave::Register::*;
     use gb::apu::noise::Register::*;
-
-    // writeln!(&mut ::std::io::stderr(), "poke {:x} {:x}", addr, w).unwrap();
 
     match addr {
       0xFF10 => self.pulse1.write(NR10, w),
@@ -101,18 +130,22 @@ impl APU {
 
       0xFF25 => {
         for b in 0..4 {
-          self.right_enable[b] = (w & (1 << b)) > 0;
+          self.right_enable[b] = Flag::from((w & (1 << b)) > 0);
         }
         for b in 4..8 {
-          self.left_enable[b - 4] = (w & (1 << b)) > 0;
+          self.left_enable[b - 4] = Flag::from((w & (1 << b)) > 0);
         }
+      }
+
+      0xFF26 => {
+        self.enabled = Flag::from((w & 0x80) > 0);
       }
 
       0xFF30...0xFF3F => {
         self.wave.write_sample(addr - 0xFF30, w);
       }
 
-      _ => {}
+      _ => unreachable!()
     }
   }
 
@@ -184,12 +217,12 @@ impl APU {
     ];
 
     let left = self.left_enable.iter().zip(chans.iter())
-      .filter(|&(enabled,_)| *enabled)
+      .filter(|&(enabled,_)| bool::from(*enabled))
       .map(|(_, chan)| chan)
       .sum();
 
     let right = self.right_enable.iter().zip(chans.iter())
-      .filter(|&(enabled,_)| *enabled)
+      .filter(|&(enabled,_)| bool::from(*enabled))
       .map(|(_, chan)| chan)
       .sum();
 
