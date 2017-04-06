@@ -173,11 +173,20 @@ impl Wave {
     self.sample_buffer
   }
 
+  fn volume_shift(&self) -> u8 {
+    match self.volume {
+      Volume::Zero => 4,
+      Volume::Full => 0,
+      Volume::Half => 1,
+      Volume::Quarter => 2,
+    }
+  }
+
   // Return a value in [0,15]
   fn volume_output(&self) -> u8 {
     if self.is_enabled() {
       // Shift by volume code
-      self.waveform_output() >> (self.volume as u8)
+      self.waveform_output() >> self.volume_shift()
     } else {
       0
     }
