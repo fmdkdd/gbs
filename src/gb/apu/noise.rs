@@ -23,6 +23,7 @@ pub struct Noise {
   lfsr: u16,
 
   // Length
+  length_enabled: Flag,
   length_counter: u8,
 
   // Envelope
@@ -43,6 +44,7 @@ impl Noise {
       width_mode: 0,
       divisor_code: 0,
       lfsr: 0,
+      length_enabled: Flag::Off,
       length_counter: 0,
       volume: 0,
       volume_init: 0,
@@ -74,7 +76,7 @@ impl Noise {
         | self.width_mode << 3
         | self.divisor_code,
 
-      NR44 => (self.enabled as u8) << 6,
+      NR44 => (self.length_enabled as u8) << 6,
     }
   }
 
@@ -107,7 +109,7 @@ impl Noise {
       },
 
       NR44 => {
-        self.enabled = Flag::from((w & 0x40) > 0);
+        self.length_enabled = Flag::from((w & 0x40) > 0);
 
         if w & 0x80 > 0 {
           self.trigger();
@@ -146,10 +148,11 @@ impl Noise {
   }
 
   pub fn clock_length(&mut self) {
-    if self.length_counter > 0 {
+    if bool::from(self.length_enabled) && self.length_counter > 0 {
       self.length_counter -= 1;
-    } else {
-      self.enabled = Flag::Off;
+      if self.length_counter == 0 {
+        self.enabled = Flag::Off;
+      }
     }
   }
 

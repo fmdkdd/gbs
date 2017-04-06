@@ -38,6 +38,7 @@ pub struct Wave {
   frequency: u16,
 
   // Length
+  length_enabled: Flag,
   length_counter: u16,
 
   // Volume (no envelope)
@@ -56,6 +57,7 @@ impl Wave {
       dac_enabled: Flag::Off,
       period: 0,
       frequency: 0,
+      length_enabled: Flag::Off,
       length_counter: 0,
       volume: Volume::Zero,
       samples: [0; 16],
@@ -80,7 +82,7 @@ impl Wave {
       NR31 => 0, // write-only
       NR32 => (self.volume as u8) << 5,
       NR33 => 0, // write-only
-      NR34 => ((self.enabled as u8) << 6),
+      NR34 => ((self.length_enabled as u8) << 6),
     }
   }
 
@@ -110,7 +112,7 @@ impl Wave {
 
       NR34 => {
         self.frequency = (self.frequency & 0xFF) | (((w & 0x7) as u16) << 8);
-        self.enabled = Flag::from((w & 0x40) > 0);
+        self.length_enabled = Flag::from((w & 0x40) > 0);
 
         if w & 0x80 > 0 {
           self.trigger();
@@ -136,10 +138,11 @@ impl Wave {
   }
 
   pub fn clock_length(&mut self) {
-    if self.length_counter > 0 {
+    if bool::from(self.length_enabled) && self.length_counter > 0 {
       self.length_counter -= 1;
-    } else {
-      self.enabled = Flag::Off;
+      if self.length_counter == 0 {
+        self.enabled = Flag::Off;
+      }
     }
   }
 

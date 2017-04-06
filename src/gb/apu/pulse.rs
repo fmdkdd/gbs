@@ -67,6 +67,7 @@ pub struct Pulse {
   duty_idx: u8,
 
   // Length
+  length_enabled: Flag,
   length_counter: u8,
 
   // Envelope
@@ -86,6 +87,7 @@ impl Pulse {
       frequency: 0,
       duty: Duty::Half,
       duty_idx: 0,
+      length_enabled: Flag::Off,
       length_counter: 0,
       volume: 0,
       volume_init: 0,
@@ -119,7 +121,7 @@ impl Pulse {
       // Frequency is write-only
       NR13 | NR23 => 0,
 
-      NR14 | NR24 => ((self.enabled as u8) << 6),
+      NR14 | NR24 => ((self.length_enabled as u8) << 6),
     }
   }
 
@@ -154,7 +156,7 @@ impl Pulse {
 
       NR14 | NR24 => {
         self.frequency = (self.frequency & 0xFF) | (((w & 0x7) as u16) << 8);
-        self.enabled = Flag::from((w & 0x40) > 0);
+        self.length_enabled = Flag::from((w & 0x40) > 0);
 
         if w & 0x80 > 0 {
           self.trigger();
@@ -177,10 +179,11 @@ impl Pulse {
   }
 
   pub fn clock_length(&mut self) {
-    if self.length_counter > 0 {
+    if bool::from(self.length_enabled) && self.length_counter > 0 {
       self.length_counter -= 1;
-    } else {
-      self.enabled = Flag::Off;
+      if self.length_counter == 0 {
+        self.enabled = Flag::Off;
+      }
     }
   }
 
