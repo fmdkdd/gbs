@@ -27,8 +27,14 @@ pub struct APU {
   frame_seq: FrameSequencer,
 
   // Mixer
-  left_enable: [Flag; 4],
-  right_enable: [Flag; 4],
+  left_enable_pulse1: Flag,
+  left_enable_pulse2: Flag,
+  left_enable_wave: Flag,
+  left_enable_noise: Flag,
+  right_enable_pulse1: Flag,
+  right_enable_pulse2: Flag,
+  right_enable_wave: Flag,
+  right_enable_noise: Flag,
   left_volume: u8,
   right_volume: u8,
 }
@@ -42,8 +48,14 @@ impl APU {
       wave: Wave::new(),
       noise: Noise::new(),
       frame_seq: FrameSequencer::new(),
-      left_enable: [Flag::Off; 4],
-      right_enable: [Flag::Off; 4],
+      left_enable_pulse1: Flag::Off,
+      left_enable_pulse2: Flag::Off,
+      left_enable_wave: Flag::Off,
+      left_enable_noise: Flag::Off,
+      right_enable_pulse1: Flag::Off,
+      right_enable_pulse2: Flag::Off,
+      right_enable_wave: Flag::Off,
+      right_enable_noise: Flag::Off,
       left_volume: 0,
       right_volume: 0,
     }
@@ -80,12 +92,18 @@ impl APU {
       0xFF24 => self.left_volume << 4
         | self.right_volume,
 
-      0xFF25 => self.left_enable.iter().chain(self.right_enable.iter())
-        .fold(0, |acc, &b| acc << 1 + (b as u8)),
+      0xFF25 => (self.right_enable_noise as u8) << 7
+        |(self.right_enable_wave as u8)         << 6
+        |(self.right_enable_pulse2 as u8)       << 5
+        |(self.right_enable_pulse1 as u8)       << 4
+        |(self.left_enable_noise as u8)         << 3
+        |(self.left_enable_wave as u8)          << 2
+        |(self.left_enable_pulse2 as u8)        << 1
+        |(self.left_enable_pulse1 as u8),
 
-      0xFF26 => (self.enabled as u8) << 7
-        | (self.noise.is_enabled() as u8) << 3
-        | (self.wave.is_enabled() as u8) << 2
+      0xFF26 => (self.enabled as u8)       << 7
+        | (self.noise.is_enabled() as u8)  << 3
+        | (self.wave.is_enabled() as u8)   << 2
         | (self.pulse2.is_enabled() as u8) << 1
         | (self.pulse1.is_enabled() as u8),
 
@@ -129,12 +147,14 @@ impl APU {
       }
 
       0xFF25 => {
-        for b in 0..4 {
-          self.right_enable[b] = Flag::from((w & (1 << b)) > 0);
-        }
-        for b in 4..8 {
-          self.left_enable[b - 4] = Flag::from((w & (1 << b)) > 0);
-        }
+        self.right_enable_noise  = Flag::from(w & 0x80);
+        self.right_enable_wave   = Flag::from(w & 0x40);
+        self.right_enable_pulse2 = Flag::from(w & 0x20);
+        self.right_enable_pulse1 = Flag::from(w & 0x10);
+        self.left_enable_noise   = Flag::from(w & 0x08);
+        self.left_enable_wave    = Flag::from(w & 0x04);
+        self.left_enable_pulse2  = Flag::from(w & 0x02);
+        self.left_enable_pulse1  = Flag::from(w & 0x01);
       }
 
       0xFF26 => {
@@ -209,22 +229,35 @@ impl APU {
 
   // Return a two samples (stereo) in [-1.0,1.0]
   fn mixer_output(&self) -> (f32, f32) {
-    let chans = vec![
-      self.pulse1.dac_output(),
-      self.pulse2.dac_output(),
-      self.wave.dac_output(),
-      self.noise.dac_output(),
-    ];
+    let mut left = 0.0;
 
-    let left = self.left_enable.iter().zip(chans.iter())
-      .filter(|&(enabled,_)| bool::from(*enabled))
-      .map(|(_, chan)| chan)
-      .sum();
+    if bool::from(self.left_enable_pulse1) {
+      left += self.pulse1.dac_output();
+    }
+    if bool::from(self.left_enable_pulse2) {
+      left += self.pulse2.dac_output();
+    }
+    if bool::from(self.left_enable_wave) {
+      left += self.wave.dac_output();
+    }
+    if bool::from(self.left_enable_noise) {
+      left += self.noise.dac_output();
+    }
 
-    let right = self.right_enable.iter().zip(chans.iter())
-      .filter(|&(enabled,_)| bool::from(*enabled))
-      .map(|(_, chan)| chan)
-      .sum();
+    let mut right = 0.0;
+
+    if bool::from(self.right_enable_pulse1) {
+      right += self.pulse1.dac_output();
+    }
+    if bool::from(self.right_enable_pulse2) {
+      right += self.pulse2.dac_output();
+    }
+    if bool::from(self.right_enable_wave) {
+      right += self.wave.dac_output();
+    }
+    if bool::from(self.right_enable_noise) {
+      right += self.noise.dac_output();
+    }
 
     (left, right)
   }

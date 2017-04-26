@@ -13,6 +13,12 @@ impl From<bool> for Flag {
   }
 }
 
+impl From<u8> for Flag {
+  fn from(v: u8) -> Self {
+    Flag::from(v > 0)
+  }
+}
+
 impl From<Flag> for bool {
   fn from(v: Flag) -> Self {
     match v {
