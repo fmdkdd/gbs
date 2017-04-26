@@ -120,14 +120,14 @@ impl Noise {
 
   fn get_period(&self) -> u32 {
     let divisor = match self.divisor_code {
-      0 => 4,
-      1 => 8,
-      2 => 16,
-      3 => 24,
-      4 => 32,
-      5 => 40,
-      6 => 48,
-      7 => 56,
+      0 => 8,
+      1 => 16,
+      2 => 32,
+      3 => 48,
+      4 => 64,
+      5 => 80,
+      6 => 96,
+      7 => 112,
       _ => unreachable!(),
     };
     divisor << self.clock_shift
@@ -141,7 +141,8 @@ impl Noise {
     }
 
     self.period = self.get_period();
-    self.lfsr = 0xFFFF;
+    // LFSR is 15bit max
+    self.lfsr = 0x7FFF;
 
     self.volume_counter = self.volume_period;
     self.volume = self.volume_init;
@@ -182,7 +183,9 @@ impl Noise {
 
       let bit = (self.lfsr ^ (self.lfsr >> 1)) & 1;
       self.lfsr >>= 1;
+      // Put result of XOR into the now-empty high bit (bit 14)
       self.lfsr |= bit << 14;
+      // If width mode is 1, the XOR result is ALSO put into bit 6
       if self.width_mode == 1 {
         self.lfsr = (bit << 6) | (self.lfsr & (!0x40));
       }
