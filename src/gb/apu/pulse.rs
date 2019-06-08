@@ -1,5 +1,6 @@
 use gb::apu::flag::Flag;
 
+#[derive(Debug)]
 pub enum Register {
   NR10,
   NR11,
@@ -76,6 +77,12 @@ pub struct Pulse {
   volume_counter: u8,
   volume_period: u8,
   volume_sweep: Sweep,
+
+  // Sweep
+  sweep_shifts: u8,
+  sweep_direction: Sweep,
+  sweep_time: u8,
+  sweep_counter: u8,
 }
 
 impl Pulse {
@@ -94,6 +101,10 @@ impl Pulse {
       volume_counter: 0,
       volume_period: 0,
       volume_sweep: Sweep::Decrease,
+      sweep_shifts: 0,
+      sweep_direction: Sweep::Increase,
+      sweep_time: 0,
+      sweep_counter: 0,
     }
   }
 
@@ -129,7 +140,16 @@ impl Pulse {
     use self::Register::*;
 
     match reg {
-      NR10 => {},
+      NR10 => {
+        println!("sweep {}", w);
+        self.sweep_shifts = w & 0x3;
+        self.sweep_direction = match (w >> 3) & 0x1 {
+          0 => Sweep::Increase,
+          1 => Sweep::Decrease,
+          _ => unreachable!(),
+        };
+        self.sweep_time = (w >> 6) & 0x3;
+      },
 
       NR11 | NR21 => {
         self.duty = Duty::from_u8(w >> 6).unwrap();
@@ -206,7 +226,21 @@ impl Pulse {
   }
 
   pub fn clock_sweep(&mut self) {
-    // TODO:
+    if self.sweep_time == 0 {
+      return
+    }
+
+    if self.sweep_counter > 0 {
+      self.sweep_counter -= 1;
+    } else {
+      self.sweep_counter = self.sweep_time;
+      let f = self.frequency;
+      let d = f / (1 << self.sweep_shifts);
+      self.frequency = match self.sweep_direction {
+        Sweep::Increase => f + d,
+        Sweep::Decrease => f - d,
+      };
+    }
   }
 
   pub fn clock_frequency(&mut self) {

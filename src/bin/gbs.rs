@@ -8,10 +8,14 @@ use gbs::gb::GB;
 use gbs::gb::cpu::{R8, R16};
 
 fn main() {
-  // Read GBS file
+  // Parse args
   let filename = env::args().nth(1)
     .expect("No GBS file specified");
 
+  let track = env::args().nth(2).map(|s| s.parse::<u8>())
+    .unwrap_or(Ok(0)).unwrap_or(0);
+
+  // Read GBS file
   let gbs = gbs_parser::load(filename)
     .expect("Error loading GBS file");
 
@@ -29,6 +33,13 @@ fn main() {
   println!("author: {}", gbs.author);
   println!("copyright: {}", gbs.copyright);
   println!("rom len: {:x}", gbs.rom.len());
+
+  // Bail if track doesn't exist
+  if track >= gbs.n_songs {
+    panic!("Requested track {} but only {} are available");
+  } else {
+    println!("Writing 1min of track {} to out.wav...", track);
+  }
 
   // Init WAV output
   let spec = hound::WavSpec {
@@ -53,7 +64,7 @@ fn main() {
   gb.cpu.clear_ram();
 
   gb.cpu.rr_set(R16::SP, gbs.sp);
-  gb.cpu.r_set(R8::A, 0);
+  gb.cpu.r_set(R8::A, track);
   gb.cpu.rr_set(R16::PC, idle_addr);
   gb.cpu.call(gbs.init_addr);
   // Run the INIT subroutine
@@ -61,7 +72,7 @@ fn main() {
     gb.cpu.step();
   }
 
-  // Play for 10sec
+  // Play for 1min
   let mut frames = 60 * 60;
   let mut cycle = 0;
   while frames > 0 {
@@ -101,4 +112,6 @@ fn main() {
     }
     frames -= 1;
   }
+
+  println!("Done");
 }
